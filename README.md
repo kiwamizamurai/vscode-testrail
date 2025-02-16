@@ -12,7 +12,7 @@ Seamlessly integrate TestRail into your VS Code workflow. View, edit, and manage
 
 This is an open-source alternative to the [Paid extension by Railflow](https://railflow.io/testrail/vscode-extension).
 
-<img src="resources/logo.svg" alt="logo" width="200">
+<img src="resources/logo.png" alt="logo" width="200">
 
 </div>
 

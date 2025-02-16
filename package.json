@@ -1,0 +1,220 @@
+{
+  "name": "testrail-vscode",
+  "displayName": "TestRail",
+  "description": "TestRail integration for Visual Studio Code",
+  "version": "1.0.0",
+  "publisher": "kiwamizamurai-vscode",
+  "author": {
+    "name": "kiwamizamurai",
+    "url": "https://github.com/kiwamizamurai"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kiwamizamurai/vscode-testrail"
+  },
+  "bugs": {
+    "url": "https://github.com/kiwamizamurai/vscode-testrail/issues"
+  },
+  "homepage": "https://github.com/kiwamizamurai/vscode-testrail#readme",
+  "icon": "resources/logo.png",
+  "engines": {
+    "vscode": "^1.86.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "testRailExplorer",
+          "title": "TestRail Explorer",
+          "icon": "resources/logo.svg"
+        }
+      ]
+    },
+    "views": {
+      "testRailExplorer": [
+        {
+          "id": "testRailExplorer",
+          "name": "TestRail Explorer"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "vscode-testrail.refresh",
+        "title": "Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "vscode-testrail.login",
+        "title": "TestRail: Login",
+        "icon": "$(sign-in)"
+      },
+      {
+        "command": "vscode-testrail.logout",
+        "title": "TestRail: Logout",
+        "icon": "$(sign-out)"
+      },
+      {
+        "command": "vscode-testrail.addTestCase",
+        "title": "[c] Case",
+        "category": "TestRail"
+      },
+      {
+        "command": "vscode-testrail.deleteTestCase",
+        "title": "[d] Case",
+        "category": "TestRail"
+      },
+      {
+        "command": "vscode-testrail.duplicateTestCase",
+        "title": "[x] Case",
+        "category": "TestRail"
+      },
+      {
+        "command": "vscode-testrail.addSuite",
+        "title": "[c] Suite",
+        "category": "TestRail"
+      },
+      {
+        "command": "vscode-testrail.editSuite",
+        "title": "[e] Suite",
+        "category": "TestRail"
+      },
+      {
+        "command": "vscode-testrail.deleteSuite",
+        "title": "[d] Suite",
+        "category": "TestRail"
+      },
+      {
+        "command": "vscode-testrail.addSection",
+        "title": "[c] Section",
+        "category": "TestRail"
+      },
+      {
+        "command": "vscode-testrail.editSection",
+        "title": "[e] Section",
+        "category": "TestRail"
+      },
+      {
+        "command": "vscode-testrail.deleteSection",
+        "title": "[d] Section",
+        "category": "TestRail"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "vscode-testrail.refresh",
+          "when": "view == testRailExplorer",
+          "group": "navigation"
+        },
+        {
+          "command": "vscode-testrail.login",
+          "when": "view == testRailExplorer",
+          "group": "navigation"
+        },
+        {
+          "command": "vscode-testrail.logout",
+          "when": "view == testRailExplorer",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "vscode-testrail.addTestCase",
+          "when": "view == testRailExplorer && viewItem == section",
+          "group": "inline"
+        },
+        {
+          "command": "vscode-testrail.deleteTestCase",
+          "when": "view == testRailExplorer && viewItem == testCase",
+          "group": "inline"
+        },
+        {
+          "command": "vscode-testrail.duplicateTestCase",
+          "when": "view == testRailExplorer && viewItem == testCase",
+          "group": "inline"
+        },
+        {
+          "command": "vscode-testrail.addSuite",
+          "when": "view == testRailExplorer && viewItem == project",
+          "group": "inline"
+        },
+        {
+          "command": "vscode-testrail.editSuite",
+          "when": "view == testRailExplorer && viewItem == suite",
+          "group": "inline"
+        },
+        {
+          "command": "vscode-testrail.deleteSuite",
+          "when": "view == testRailExplorer && viewItem == suite",
+          "group": "inline"
+        },
+        {
+          "command": "vscode-testrail.addSection",
+          "when": "view == testRailExplorer && (viewItem == suite || viewItem == section)",
+          "group": "inline"
+        },
+        {
+          "command": "vscode-testrail.editSection",
+          "when": "view == testRailExplorer && viewItem == section",
+          "group": "inline"
+        },
+        {
+          "command": "vscode-testrail.deleteSection",
+          "when": "view == testRailExplorer && viewItem == section",
+          "group": "inline"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "TestRail",
+      "properties": {
+        "testrail.host": {
+          "type": "string",
+          "default": "",
+          "description": "TestRail host URL"
+        },
+        "testrail.email": {
+          "type": "string",
+          "default": "",
+          "description": "TestRail email"
+        },
+        "testrail.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "TestRail API key"
+        },
+        "testrail.projectId": {
+          "type": "number",
+          "default": null,
+          "description": "TestRail project ID to filter"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "format": "biome format --write .",
+    "lint": "biome lint .",
+    "check": "biome check --apply .",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.19",
+    "@types/vscode": "^1.86.0",
+    "typescript": "^5.3.3",
+    "biome": "^0.3.3",
+    "@vscode/vsce": "^2.24.0"
+  },
+  "dependencies": {
+    "testrail-modern-client": "^1.1.0"
+  }
+}
