@@ -2,7 +2,7 @@
   "name": "testrail-vscode",
   "displayName": "TestRail",
   "description": "TestRail integration for Visual Studio Code",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publisher": "kiwamizamurai-vscode",
   "author": {
     "name": "kiwamizamurai",
@@ -22,6 +22,15 @@
   },
   "categories": [
     "Other"
+  ],
+  "keywords": [
+    "testrail",
+    "testing",
+    "qa",
+    "quality assurance",
+    "playwright",
+    "cypress",
+    "selenium"
   ],
   "activationEvents": [],
   "main": "./dist/extension.js",
@@ -210,9 +219,9 @@
   "devDependencies": {
     "@types/node": "^20.11.19",
     "@types/vscode": "^1.86.0",
-    "typescript": "^5.3.3",
-    "biome": "^0.3.3",
-    "@vscode/vsce": "^2.24.0"
+    "@vscode/vsce": "^2.24.0",
+    "biome": "^0.2.2",
+    "typescript": "^5.3.3"
   },
   "dependencies": {
     "testrail-modern-client": "^1.1.0"
