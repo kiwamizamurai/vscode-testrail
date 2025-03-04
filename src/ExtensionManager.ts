@@ -5,6 +5,8 @@ import { TestRailTreeProvider } from './treeView';
 import { TestCaseCommands } from './commands/testCase.commands';
 import { SuiteCommands } from './commands/suite.commands';
 import { SectionCommands } from './commands/section.commands';
+import { RunCommands } from './commands/run.commands';
+import { ResultCommands } from './commands/result.commands';
 
 export class ExtensionManager {
   private client: TestRailClient | undefined;
@@ -12,6 +14,8 @@ export class ExtensionManager {
   private testCaseCommands: TestCaseCommands | undefined;
   private suiteCommands: SuiteCommands | undefined;
   private sectionCommands: SectionCommands | undefined;
+  private runCommands: RunCommands | undefined;
+  private resultCommands: ResultCommands | undefined;
   private basicCommandDisposables: vscode.Disposable[] = [];
 
   constructor(
@@ -92,6 +96,8 @@ export class ExtensionManager {
     this.testCaseCommands = new TestCaseCommands(this.client, this.auth);
     this.suiteCommands = new SuiteCommands(this.client, this.auth);
     this.sectionCommands = new SectionCommands(this.client, this.auth);
+    this.runCommands = new RunCommands(this.client, this.auth);
+    this.resultCommands = new ResultCommands(this.client, this.auth);
 
     // Register client-dependent commands directly to context.subscriptions
     this.context.subscriptions.push(
@@ -99,37 +105,65 @@ export class ExtensionManager {
       vscode.commands.registerCommand('vscode-testrail.openTestCase', (testCase) =>
         this.testCaseCommands?.handleOpenTestCase(testCase)
       ),
-      vscode.commands.registerCommand('vscode-testrail.addTestCase', (arg) =>
-        this.testCaseCommands?.handleAddTestCase(arg)
+      vscode.commands.registerCommand('vscode-testrail.addTestCase', (section) =>
+        this.testCaseCommands?.handleAddTestCase(section)
       ),
-      vscode.commands.registerCommand('vscode-testrail.deleteTestCase', (arg) =>
-        this.testCaseCommands?.handleDeleteTestCase(arg)
+      vscode.commands.registerCommand('vscode-testrail.deleteTestCase', (testCase) =>
+        this.testCaseCommands?.handleDeleteTestCase(testCase)
       ),
-      vscode.commands.registerCommand('vscode-testrail.duplicateTestCase', (arg) =>
-        this.testCaseCommands?.handleDuplicateTestCase(arg)
+      vscode.commands.registerCommand('vscode-testrail.duplicateTestCase', (testCase) =>
+        this.testCaseCommands?.handleDuplicateTestCase(testCase)
       ),
 
       // Suite commands
-      vscode.commands.registerCommand('vscode-testrail.addSuite', (arg) =>
-        this.suiteCommands?.handleAddSuite(arg)
+      vscode.commands.registerCommand('vscode-testrail.addSuite', (project) =>
+        this.suiteCommands?.handleAddSuite(project)
       ),
-      vscode.commands.registerCommand('vscode-testrail.editSuite', (arg) =>
-        this.suiteCommands?.handleEditSuite(arg)
+      vscode.commands.registerCommand('vscode-testrail.editSuite', (suite) =>
+        this.suiteCommands?.handleEditSuite(suite)
       ),
-      vscode.commands.registerCommand('vscode-testrail.deleteSuite', (arg) =>
-        this.suiteCommands?.handleDeleteSuite(arg)
+      vscode.commands.registerCommand('vscode-testrail.deleteSuite', (suite) =>
+        this.suiteCommands?.handleDeleteSuite(suite)
       ),
 
       // Section commands
-      vscode.commands.registerCommand('vscode-testrail.addSection', (arg) =>
-        this.sectionCommands?.handleAddSection(arg)
+      vscode.commands.registerCommand('vscode-testrail.addSection', (parent) =>
+        this.sectionCommands?.handleAddSection(parent)
       ),
-      vscode.commands.registerCommand('vscode-testrail.editSection', (arg) =>
-        this.sectionCommands?.handleEditSection(arg)
+      vscode.commands.registerCommand('vscode-testrail.editSection', (section) =>
+        this.sectionCommands?.handleEditSection(section)
       ),
-      vscode.commands.registerCommand('vscode-testrail.deleteSection', (arg) =>
-        this.sectionCommands?.handleDeleteSection(arg)
-      )
+      vscode.commands.registerCommand('vscode-testrail.deleteSection', (section) =>
+        this.sectionCommands?.handleDeleteSection(section)
+      ),
+
+      // Run commands
+      vscode.commands.registerCommand('vscode-testrail.addRun', (projectOrSuite) =>
+        this.runCommands?.handleAddRun(projectOrSuite)
+      ),
+      vscode.commands.registerCommand('vscode-testrail.editRun', (run) =>
+        this.runCommands?.handleEditRun(run)
+      ),
+      vscode.commands.registerCommand('vscode-testrail.deleteRun', (run) =>
+        this.runCommands?.handleDeleteRun(run)
+      ),
+      vscode.commands.registerCommand('vscode-testrail.closeRun', (run) =>
+        this.runCommands?.handleCloseRun(run)
+      ),
+
+      // Result commands
+      vscode.commands.registerCommand('vscode-testrail.addResult', (test) =>
+        this.resultCommands?.handleAddResult(test)
+      ),
+      vscode.commands.registerCommand('vscode-testrail.viewResults', (test) =>
+        this.resultCommands?.handleViewResults(test)
+      ),
+      vscode.commands.registerCommand('vscode-testrail.bulkAddResults', (run) =>
+        this.resultCommands?.handleBulkAddResults(run)
+      ),
+      vscode.commands.registerCommand('vscode-testrail.openTest', (test, _run) => {
+        this.resultCommands?.handleViewResults(test);
+      })
     );
   }
 

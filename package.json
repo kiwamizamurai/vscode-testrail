@@ -2,7 +2,7 @@
   "name": "testrail-vscode",
   "displayName": "TestRail",
   "description": "TestRail integration for Visual Studio Code",
-  "version": "1.0.1",
+  "version": "0.2.0",
   "publisher": "kiwamizamurai-vscode",
   "author": {
     "name": "kiwamizamurai",
@@ -22,15 +22,6 @@
   },
   "categories": [
     "Other"
-  ],
-  "keywords": [
-    "testrail",
-    "testing",
-    "qa",
-    "quality assurance",
-    "playwright",
-    "cypress",
-    "selenium"
   ],
   "activationEvents": [],
   "main": "./dist/extension.js",
@@ -112,6 +103,51 @@
         "command": "vscode-testrail.deleteSection",
         "title": "[d] Section",
         "category": "TestRail"
+      },
+      {
+        "command": "vscode-testrail.addRun",
+        "title": "[c] Run",
+        "category": "TestRail"
+      },
+      {
+        "command": "vscode-testrail.editRun",
+        "title": "[e] Run",
+        "category": "TestRail"
+      },
+      {
+        "command": "vscode-testrail.deleteRun",
+        "title": "[d] Run",
+        "category": "TestRail"
+      },
+      {
+        "command": "vscode-testrail.closeRun",
+        "title": "[x] Close Run",
+        "category": "TestRail"
+      },
+      {
+        "command": "vscode-testrail.openTest",
+        "title": "Open Test",
+        "category": "TestRail"
+      },
+      {
+        "command": "vscode-testrail.updateTestResult",
+        "title": "Update Test Result",
+        "category": "TestRail"
+      },
+      {
+        "command": "vscode-testrail.addResult",
+        "title": "[c] Result",
+        "category": "TestRail"
+      },
+      {
+        "command": "vscode-testrail.viewResults",
+        "title": "[v] Results",
+        "category": "TestRail"
+      },
+      {
+        "command": "vscode-testrail.bulkAddResults",
+        "title": "[b] Bulk Add Results",
+        "category": "TestRail"
       }
     ],
     "menus": {
@@ -177,6 +213,41 @@
           "command": "vscode-testrail.deleteSection",
           "when": "view == testRailExplorer && viewItem == section",
           "group": "inline"
+        },
+        {
+          "command": "vscode-testrail.addRun",
+          "when": "view == testRailExplorer && (viewItem == suite || viewItem == runsCategory)",
+          "group": "inline"
+        },
+        {
+          "command": "vscode-testrail.editRun",
+          "when": "view == testRailExplorer && viewItem == run",
+          "group": "inline"
+        },
+        {
+          "command": "vscode-testrail.deleteRun",
+          "when": "view == testRailExplorer && viewItem == run",
+          "group": "inline"
+        },
+        {
+          "command": "vscode-testrail.closeRun",
+          "when": "view == testRailExplorer && viewItem == run",
+          "group": "inline"
+        },
+        {
+          "command": "vscode-testrail.addResult",
+          "when": "view == testRailExplorer && viewItem == test",
+          "group": "inline"
+        },
+        {
+          "command": "vscode-testrail.viewResults",
+          "when": "view == testRailExplorer && viewItem == test",
+          "group": "inline"
+        },
+        {
+          "command": "vscode-testrail.bulkAddResults",
+          "when": "view == testRailExplorer && viewItem == run",
+          "group": "inline"
         }
       ]
     },
@@ -224,6 +295,6 @@
     "typescript": "^5.3.3"
   },
   "dependencies": {
-    "testrail-modern-client": "^1.1.0"
+    "testrail-modern-client": "^1.1.1"
   }
 }

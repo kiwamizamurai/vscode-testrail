@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { Project, Suite, TestCase, TestRailClient, Section } from 'testrail-modern-client';
+import { Project, Suite, TestCase, TestRailClient, Section, Run, Test } from 'testrail-modern-client';
 
 export class TestRailTreeProvider implements vscode.TreeDataProvider<TreeItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<TreeItem | undefined>();
@@ -44,25 +44,83 @@ export class TestRailTreeProvider implements vscode.TreeDataProvider<TreeItem> {
         console.log(`Getting suites for project ${element.project.id}`);
         const suites = await this.client.suites.list(element.project.id);
         console.log(`Found ${suites.length} suites`);
+        
         if (suites.length === 0) {
           vscode.window.showInformationMessage(
             `No test suites found in project: ${element.project.name}`
           );
+          return [];
         }
+        
         return suites.map((s) => new SuiteItem(s, element.project.id));
       }
 
       if (element instanceof SuiteItem) {
+        const items: TreeItem[] = [];
+        
+        // Get sections for this suite
         console.log(`Getting sections for suite ${element.suite.id}`);
         const sections = await this.client.sections.list(element.projectId, element.suite.id);
         console.log(`Found ${sections.length} sections`);
+        
         // Get root level sections (parent_id is null)
         const rootSections = sections.filter((s) => !s.parent_id);
         console.log(`Found ${rootSections.length} root sections`);
-        if (rootSections.length === 0) {
-          vscode.window.showInformationMessage(`No sections found in suite: ${element.suite.name}`);
+        items.push(...rootSections.map((s) => new SectionItem(s, element.projectId, sections)));
+        
+        // Get runs for this suite
+        console.log(`Getting runs for suite ${element.suite.id} in project ${element.projectId}`);
+        const runs = await this.client.runs.list(element.projectId);
+        // Filter runs for this specific suite
+        const suiteRuns = runs.filter(r => r.suite_id === element.suite.id);
+        console.log(`Found ${suiteRuns.length} runs for suite ${element.suite.id}`);
+        
+        // Add Runs category if there are runs
+        if (suiteRuns.length > 0) {
+          items.push(new RunsCategoryItem(element.projectId, element.suite.id, suiteRuns.length));
         }
-        return rootSections.map((s) => new SectionItem(s, element.projectId, sections));
+        
+        if (items.length === 0) {
+          vscode.window.showInformationMessage(
+            `No sections or runs found in suite: ${element.suite.name}`
+          );
+        }
+        
+        return items;
+      }
+      
+      if (element instanceof RunsCategoryItem) {
+        console.log(`Getting runs for suite ${element.suiteId} in project ${element.projectId}`);
+        const runs = await this.client.runs.list(element.projectId);
+        // Filter runs for this specific suite
+        const suiteRuns = runs.filter(r => r.suite_id === element.suiteId);
+        console.log(`Found ${suiteRuns.length} runs for suite ${element.suiteId}`);
+        
+        // Sort runs by creation date (newest first)
+        suiteRuns.sort((a, b) => b.created_on - a.created_on);
+        
+        return suiteRuns.map((r) => new RunItem(r));
+      }
+
+      if (element instanceof RunItem) {
+        console.log(`Getting tests for run ${element.run.id} (${element.run.name})`);
+        try {
+          console.log(`Making API call to get tests for run ${element.run.id}`);
+          const tests = await this.client.tests.list(element.run.id);
+          console.log(`Found ${tests.length} tests for run ${element.run.id}`);
+          
+          if (tests.length > 0) {
+            console.log(`Sample test data:`, JSON.stringify(tests.slice(0, 2), null, 2));
+          } else {
+            console.log(`No tests found in run ${element.run.id}`);
+          }
+          
+          return tests.map(test => new TestItem(test, element.run));
+        } catch (error) {
+          console.error(`Error getting tests for run ${element.run.id}:`, error);
+          vscode.window.showErrorMessage(`Failed to load tests for run ${element.run.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          return [];
+        }
       }
 
       if (element instanceof SectionItem) {
@@ -149,6 +207,19 @@ export class SectionItem extends TreeItem {
   }
 }
 
+export class RunsCategoryItem extends TreeItem {
+  constructor(
+    public readonly projectId: number,
+    public readonly suiteId: number,
+    runCount: number
+  ) {
+    super('Runs', vscode.TreeItemCollapsibleState.Collapsed, 'runsCategory');
+    this.tooltip = 'Test Runs';
+    this.description = `(${runCount})`;
+    this.iconPath = new vscode.ThemeIcon('run-all');
+  }
+}
+
 export class TestCaseItem extends TreeItem {
   constructor(public readonly testCase: TestCase) {
     super(testCase.title, vscode.TreeItemCollapsibleState.None, 'testCase');
@@ -159,6 +230,68 @@ export class TestCaseItem extends TreeItem {
       command: 'vscode-testrail.openTestCase',
       title: 'Open Test Case',
       arguments: [testCase],
+    };
+  }
+}
+
+export class RunItem extends TreeItem {
+  constructor(public readonly run: Run) {
+    super(run.name, vscode.TreeItemCollapsibleState.Collapsed, 'run');
+    this.tooltip = run.name;
+    this.description = `R${run.id}`;
+    
+    // Use different icons based on run status
+    if (run.is_completed) {
+      this.iconPath = new vscode.ThemeIcon('check');
+    } else {
+      this.iconPath = new vscode.ThemeIcon('run');
+    }
+    
+    this.command = {
+      command: 'vscode-testrail.editRun',
+      title: 'Edit Run',
+      arguments: [run],
+    };
+  }
+}
+
+export class TestItem extends TreeItem {
+  constructor(
+    public readonly test: Test,
+    public readonly parentRun: Run
+  ) {
+    super(test.title, vscode.TreeItemCollapsibleState.None, 'test');
+    console.log(`Creating TestItem for test ${test.id} with title "${test.title}"`);
+    console.log(`TestItem contextValue: 'test'`);
+    this.tooltip = test.title;
+    this.description = `T${test.id}`;
+    
+    // Use different icons based on test status
+    switch (test.status_id) {
+      case 1: // Passed
+        this.iconPath = new vscode.ThemeIcon('pass');
+        break;
+      case 2: // Blocked
+        this.iconPath = new vscode.ThemeIcon('warning');
+        break;
+      case 3: // Untested
+        this.iconPath = new vscode.ThemeIcon('circle-outline');
+        break;
+      case 4: // Retest
+        this.iconPath = new vscode.ThemeIcon('refresh');
+        break;
+      case 5: // Failed
+        this.iconPath = new vscode.ThemeIcon('error');
+        break;
+      default:
+        this.iconPath = new vscode.ThemeIcon('symbol-method');
+    }
+    
+    // Add command to view results
+    this.command = {
+      command: 'vscode-testrail.viewResults',
+      title: 'View Results',
+      arguments: [this],
     };
   }
 }

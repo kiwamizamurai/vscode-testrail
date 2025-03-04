@@ -34,6 +34,15 @@ export interface SectionUpdate {
   suite_id?: number;
 }
 
+export interface RunUpdate {
+  name?: string;
+  description?: string;
+  milestone_id?: number;
+  include_all?: boolean;
+  case_ids?: number[];
+  refs?: string;
+}
+
 export interface TreeItem {
   id: number;
   name: string;
