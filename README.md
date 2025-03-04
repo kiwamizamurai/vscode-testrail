@@ -1,5 +1,8 @@
 # TestRail VSCode Extension
 
+> [!NOTE]
+> This project is entirely (99.9%) created using AI
+
 <div align="center">
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -67,9 +70,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - [TestRail API Documentation](https://support.testrail.com/hc/en-us/articles/7077083596436-Introduction-to-the-TestRail-API)
 - [VS Code Webview API](https://code.visualstudio.com/api/extension-guides/webview)
-
----
-
-<div align="center">
-Made with ❤️ for TestRail users
-</div>
