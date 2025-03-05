@@ -1,7 +1,7 @@
 # TestRail VSCode Extension
 
 > [!NOTE]
-> This project is entirely (99.9%) created using AI. I aim to learn the shortest and most optimal ways to use LLMs, including prompt techniques.
+> This project is unstable. I plan to conduct extensive refactoring and implement testing in the future, though the timeline remains undetermined. Should the system suddenly cease to function, please revert to a previous version.​​​​​​​​​​​
 
 <div align="center">
 
