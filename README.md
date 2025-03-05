@@ -1,7 +1,7 @@
 # TestRail VSCode Extension
 
 > [!NOTE]
-> This project is entirely (99.9%) created using AI
+> This project is entirely (99.9%) created using AI. I aim to learn the shortest and most optimal ways to use LLMs, including prompt techniques.
 
 <div align="center">
 
