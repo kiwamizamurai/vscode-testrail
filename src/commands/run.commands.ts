@@ -4,6 +4,7 @@ import { TestRailAuth } from '../auth';
 import { getRunWebviewContent } from '../webview';
 import { RunUpdate } from '../types';
 import { SuiteItem, RunsCategoryItem } from '../treeView';
+import { WebviewManager } from '../WebviewManager';
 
 export class RunCommands {
   constructor(
@@ -151,14 +152,11 @@ export class RunCommands {
       );
     }
 
-    const panel = vscode.window.createWebviewPanel(
+    const webviewManager = WebviewManager.getInstance();
+    const panel = webviewManager.createOrShowWebviewPanel(
       'run',
       `Run: ${run.name}`,
-      vscode.ViewColumn.One,
-      {
-        enableScripts: true,
-        retainContextWhenHidden: true,
-      }
+      run.id
     );
 
     const host = this.auth.getHost();

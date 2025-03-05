@@ -1,8 +1,9 @@
 import * as vscode from 'vscode';
-import { Test, TestRailClient, Run } from 'testrail-modern-client';
+import { Test, TestRailClient } from 'testrail-modern-client';
 import { TestRailAuth } from '../auth';
 import { TestItem } from '../treeView';
-import { getResultWebviewContent } from '../webview';
+import { getResultWebviewContent } from '../webview/resultView';
+import { WebviewManager } from '../WebviewManager';
 
 export class ResultCommands {
   constructor(
@@ -101,14 +102,11 @@ export class ResultCommands {
       }
       
       // Create a webview panel to display results
-      const panel = vscode.window.createWebviewPanel(
+      const webviewManager = WebviewManager.getInstance();
+      const panel = webviewManager.createOrShowWebviewPanel(
         'testResults',
         `Results: ${test.title}`,
-        vscode.ViewColumn.One,
-        {
-          enableScripts: true,
-          retainContextWhenHidden: true,
-        }
+        test.id
       );
       
       const host = this.auth.getHost();
@@ -161,81 +159,6 @@ export class ResultCommands {
       );
     } catch (error) {
       vscode.window.showErrorMessage(`Operation failed: ${error}`);
-    }
-  }
-  
-  async handleBulkAddResults(arg: Run | { run: Run }): Promise<void> {
-    try {
-      const run = 'run' in arg ? arg.run : arg;
-      
-      // Get tests for this run
-      const tests = await this.client.tests.list(run.id);
-      
-      if (tests.length === 0) {
-        vscode.window.showInformationMessage(`No tests found in run "${run.name}"`);
-        return;
-      }
-      
-      // Get the status for all results
-      const statuses = await this.client.statuses.list();
-      const statusOptions = statuses.map(status => ({
-        label: status.name,
-        description: status.label || '',
-        id: status.id
-      }));
-      
-      const selectedStatus = await vscode.window.showQuickPick(
-        statusOptions,
-        {
-          placeHolder: 'Select test status for all tests',
-          title: 'Bulk Test Result Status'
-        }
-      );
-      
-      if (!selectedStatus) return;
-      
-      // Get the comment for all results
-      const comment = await vscode.window.showInputBox({
-        prompt: 'Enter result comment for all tests (optional)',
-        placeHolder: 'Comment',
-      });
-      
-      // Get the elapsed time for all results
-      const elapsed = await vscode.window.showInputBox({
-        prompt: 'Enter elapsed time for all tests (optional)',
-        placeHolder: 'e.g., 30s, 1m 45s',
-        validateInput: (value) => {
-          if (!value) return null;
-          // Simple validation for time format
-          if (!/^(\d+[ms](?: \d+[ms])?)?$/.test(value)) {
-            return 'Invalid time format. Use format like "30s" or "1m 45s"';
-          }
-          return null;
-        }
-      });
-      
-      // Get the version for all results
-      const version = await vscode.window.showInputBox({
-        prompt: 'Enter version for all tests (optional)',
-        placeHolder: 'e.g., 1.0.0',
-      });
-      
-      // Add results for each test individually since bulk API is not working correctly
-      const promises = tests.map(test => 
-        this.client.results.add(test.id, {
-          status_id: selectedStatus.id,
-          comment: comment || undefined,
-          elapsed: elapsed || undefined,
-          version: version || undefined
-        })
-      );
-      
-      await Promise.all(promises);
-      
-      vscode.window.showInformationMessage(`Results added successfully for ${tests.length} tests in run "${run.name}"`);
-      vscode.commands.executeCommand('vscode-testrail.refresh');
-    } catch (error) {
-      vscode.window.showErrorMessage(`Failed to add results: ${error}`);
     }
   }
 } 

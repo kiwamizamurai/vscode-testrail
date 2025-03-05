@@ -3,6 +3,7 @@ import { TestRailClient, Section } from 'testrail-modern-client';
 import { TestRailAuth } from '../auth';
 import { getSectionWebviewContent } from '../webview';
 import { SuiteItem, SectionItem } from '../treeView';
+import { WebviewManager } from '../WebviewManager';
 
 export class SectionCommands {
   constructor(
@@ -44,14 +45,11 @@ export class SectionCommands {
   }
 
   async handleEditSection(sectionItem: SectionItem): Promise<void> {
-    const panel = vscode.window.createWebviewPanel(
+    const webviewManager = WebviewManager.getInstance();
+    const panel = webviewManager.createOrShowWebviewPanel(
       'section',
       `Section: ${sectionItem.section.name}`,
-      vscode.ViewColumn.One,
-      {
-        enableScripts: true,
-        retainContextWhenHidden: true,
-      }
+      sectionItem.section.id
     );
 
     const host = this.auth.getHost();

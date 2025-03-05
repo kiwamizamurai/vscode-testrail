@@ -3,6 +3,7 @@ import { TestCase, UpdateTestCase, TestRailClient } from 'testrail-modern-client
 import { TestRailAuth } from '../auth';
 import { getWebviewContent } from '../webview';
 import { SectionItem } from '../treeView';
+import { WebviewManager } from '../WebviewManager';
 
 export class TestCaseCommands {
   constructor(
@@ -11,14 +12,11 @@ export class TestCaseCommands {
   ) {}
 
   async handleOpenTestCase(testCase: TestCase): Promise<void> {
-    const panel = vscode.window.createWebviewPanel(
+    const webviewManager = WebviewManager.getInstance();
+    const panel = webviewManager.createOrShowWebviewPanel(
       'testCase',
       `TestCase: ${testCase.title}`,
-      vscode.ViewColumn.One,
-      {
-        enableScripts: true,
-        retainContextWhenHidden: true,
-      }
+      testCase.id
     );
 
     const host = this.auth.getHost();

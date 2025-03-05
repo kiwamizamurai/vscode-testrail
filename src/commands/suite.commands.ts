@@ -4,6 +4,7 @@ import { TestRailAuth } from '../auth';
 import { getSuiteWebviewContent } from '../webview';
 import { SuiteUpdate } from '../types';
 import { SuiteItem } from '../treeView';
+import { WebviewManager } from '../WebviewManager';
 
 export class SuiteCommands {
   constructor(
@@ -50,14 +51,11 @@ export class SuiteCommands {
       suite = arg;
     }
 
-    const panel = vscode.window.createWebviewPanel(
+    const webviewManager = WebviewManager.getInstance();
+    const panel = webviewManager.createOrShowWebviewPanel(
       'suite',
       `Suite: ${suite.name}`,
-      vscode.ViewColumn.One,
-      {
-        enableScripts: true,
-        retainContextWhenHidden: true,
-      }
+      suite.id
     );
 
     const host = this.auth.getHost();
@@ -66,7 +64,7 @@ export class SuiteCommands {
       return;
     }
 
-    panel.webview.html = await getSuiteWebviewContent(suite, host);
+    panel.webview.html = getSuiteWebviewContent(suite, host);
 
     panel.webview.onDidReceiveMessage(async (message) => {
       console.log('Received message in suite commands:', message);

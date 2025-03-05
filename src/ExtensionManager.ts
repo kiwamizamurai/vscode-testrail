@@ -158,9 +158,6 @@ export class ExtensionManager {
       vscode.commands.registerCommand('vscode-testrail.viewResults', (test) =>
         this.resultCommands?.handleViewResults(test)
       ),
-      vscode.commands.registerCommand('vscode-testrail.bulkAddResults', (run) =>
-        this.resultCommands?.handleBulkAddResults(run)
-      ),
       vscode.commands.registerCommand('vscode-testrail.openTest', (test, _run) => {
         this.resultCommands?.handleViewResults(test);
       })
