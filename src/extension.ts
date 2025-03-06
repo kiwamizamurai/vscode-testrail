@@ -1,6 +1,6 @@
-import * as vscode from 'vscode';
-import { TestRailAuth } from './auth';
-import { ExtensionManager } from './ExtensionManager';
+import * as vscode from "vscode";
+import { TestRailAuth } from "./auth";
+import { ExtensionManager } from "./ExtensionManager";
 
 let manager: ExtensionManager | undefined;
 

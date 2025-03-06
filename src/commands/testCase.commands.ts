@@ -1,119 +1,80 @@
-import * as vscode from 'vscode';
-import { TestCase, UpdateTestCase, TestRailClient, Attachment } from 'testrail-modern-client';
-import { TestRailAuth } from '../auth';
-import { getTestCaseWebviewContent } from '../webview';
-import { SectionItem } from '../treeView';
-import { WebviewManager } from '../WebviewManager';
+import * as vscode from "vscode";
+import {
+  TestCase,
+  UpdateTestCase,
+  TestRailClient,
+} from "testrail-modern-client";
+import { TestRailAuth } from "../auth";
+import { SectionItem } from "../treeView";
+import { ReactWebviewProvider } from "../ReactWebviewProvider";
+import os from "os";
+import path from "path";
+import fs from "fs";
 
 export class TestCaseCommands {
   constructor(
     private client: TestRailClient,
-    private auth: TestRailAuth
+    private auth: TestRailAuth,
+    private context: vscode.ExtensionContext
   ) {}
 
   async handleOpenTestCase(testCase: TestCase): Promise<void> {
-    const webviewManager = WebviewManager.getInstance();
-    const panel = webviewManager.createOrShowWebviewPanel(
-      'testCase',
-      `TestCase: ${testCase.title}`,
-      testCase.id
-    );
-
-    // Set initial loading HTML
-    panel.webview.html = `<!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Loading Test Case...</title>
-      <style>
-        body {
-          font-family: var(--vscode-font-family);
-          background-color: var(--vscode-editor-background);
-          color: var(--vscode-editor-foreground);
-          padding: 0;
-          margin: 0;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          height: 100vh;
-        }
-        .loading-container {
-          text-align: center;
-        }
-        .spinner {
-          width: 50px;
-          height: 50px;
-          border: 5px solid rgba(255, 255, 255, 0.3);
-          border-radius: 50%;
-          border-top: 5px solid var(--vscode-progressBar-background);
-          animation: spin 1s linear infinite;
-          margin: 0 auto 20px;
-        }
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      </style>
-    </head>
-    <body>
-      <div class="loading-container">
-        <div class="spinner"></div>
-        <h2>Loading Test Case...</h2>
-        <p>Please wait while we fetch the test case details.</p>
-      </div>
-    </body>
-    </html>`;
-
-    const host = this.auth.getHost();
-    if (!host) {
-      vscode.window.showErrorMessage('TestRail host is not configured');
-      return;
-    }
-
     try {
-      // Get attachments for the test case
+      // Get host from auth
+      const host = await this.auth.getHost();
+
+      // Get attachments
       const attachments = await this.client.attachments.getForCase(testCase.id);
 
-      // Use the imported function instead of requiring it
-      panel.webview.html = await getTestCaseWebviewContent(
-        testCase, 
-        host, 
+      // Prepare data for React webview
+      const data = {
+        testCase,
+        host,
         attachments,
+      };
+
+      // Use ReactWebviewProvider instead of WebviewManager
+      const reactWebviewProvider = ReactWebviewProvider.getInstance(
+        this.context.extensionUri
+      );
+      const panel = reactWebviewProvider.createOrShowWebviewPanel(
+        "testCase",
+        `TestCase: ${testCase.title}`,
+        testCase.id,
+        data
       );
 
+      // Handle messages from the webview
       panel.webview.onDidReceiveMessage(async (message) => {
-        try {
-          switch (message.command) {
-            case 'updateTestCase':
-              await this.handleUpdateTestCase(testCase.id, message.data);
-              break;
-            case 'deleteTestCase':
-              await this.handleDeleteTestCase(testCase);
-              break;
-            case 'upload':
-              await this.handleUploadAttachment(testCase.id);
-              break;
-            case 'confirmDeleteAttachment':
-              await this.handleConfirmDeleteAttachment(message.id, testCase.id);
-              break;
-            case 'getAttachment':
-              await this.handleGetAttachment(message.id, panel.webview);
-              break;
-            case 'moveTestCase':
-              await this.handleMoveTestCase(testCase.id, message.data.sectionId, message.data.suiteId);
-              break;
-          }
-        } catch (error) {
-          vscode.window.showErrorMessage(
-            `Operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-          );
+        switch (message.type) {
+          case "saveTestCase":
+            await this.handleUpdateTestCase(testCase.id, message.data);
+            break;
+          case "uploadAttachment":
+            await this.handleUploadAttachment(testCase.id, message.data);
+            break;
+          case "deleteAttachment":
+            await this.handleConfirmDeleteAttachment(
+              message.data.attachmentId,
+              message.data.testCaseId
+            );
+            break;
+          case "getAttachment":
+            await this.handleGetAttachment(message.data.id, panel.webview);
+            break;
+          case "downloadAttachment":
+            await this.handleDownloadAttachment(
+              message.data.id,
+              message.data.filename
+            );
+            break;
         }
       });
     } catch (error) {
-      console.error('Error setting up test case webview:', error);
       vscode.window.showErrorMessage(
-        `Failed to load test case details: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Error opening test case: ${
+          error instanceof Error ? error.message : String(error)
+        }`
       );
     }
   }
@@ -121,8 +82,8 @@ export class TestCaseCommands {
   async handleAddTestCase(arg: SectionItem): Promise<TestCase | void> {
     try {
       const title = await vscode.window.showInputBox({
-        prompt: 'Enter test case title',
-        placeHolder: 'Test case title',
+        prompt: "Enter test case title",
+        placeHolder: "Test case title",
       });
 
       if (!title) return;
@@ -134,35 +95,43 @@ export class TestCaseCommands {
         priority_id: 3,
       });
 
-      vscode.window.showInformationMessage(`Test case "${title}" created successfully`);
-      vscode.commands.executeCommand('vscode-testrail.refresh');
+      vscode.window.showInformationMessage(
+        `Test case "${title}" created successfully`
+      );
+      vscode.commands.executeCommand("vscode-testrail.refresh");
       return testCase;
     } catch (error) {
       vscode.window.showErrorMessage(`Failed to create test case: ${error}`);
     }
   }
 
-  async handleDeleteTestCase(arg: TestCase | { testCase: TestCase }): Promise<void> {
-    const testCase = 'id' in arg ? arg : arg.testCase;
+  async handleDeleteTestCase(
+    arg: TestCase | { testCase: TestCase }
+  ): Promise<void> {
+    const testCase = "id" in arg ? arg : arg.testCase;
     try {
       const confirm = await vscode.window.showWarningMessage(
         `Are you sure you want to delete test case "${testCase.title}"?`,
         { modal: true },
-        'Delete'
+        "Delete"
       );
 
-      if (confirm === 'Delete') {
+      if (confirm === "Delete") {
         await this.client.cases.delete(testCase.id);
-        vscode.window.showInformationMessage(`Test case "${testCase.title}" deleted successfully`);
-        vscode.commands.executeCommand('vscode-testrail.refresh');
+        vscode.window.showInformationMessage(
+          `Test case "${testCase.title}" deleted successfully`
+        );
+        vscode.commands.executeCommand("vscode-testrail.refresh");
       }
     } catch (error) {
       vscode.window.showErrorMessage(`Failed to delete test case: ${error}`);
     }
   }
 
-  async handleDuplicateTestCase(arg: TestCase | { testCase: TestCase }): Promise<TestCase | void> {
-    const testCase = 'id' in arg ? arg : arg.testCase;
+  async handleDuplicateTestCase(
+    arg: TestCase | { testCase: TestCase }
+  ): Promise<TestCase | void> {
+    const testCase = "id" in arg ? arg : arg.testCase;
     try {
       // Get the original test case details
       const originalCase = await this.client.cases.get(testCase.id);
@@ -182,111 +151,155 @@ export class TestCaseCommands {
       });
 
       vscode.window.showInformationMessage(`Test case duplicated successfully`);
-      vscode.commands.executeCommand('vscode-testrail.refresh');
+      vscode.commands.executeCommand("vscode-testrail.refresh");
       return duplicatedCase;
     } catch (error) {
       vscode.window.showErrorMessage(`Failed to duplicate test case: ${error}`);
     }
   }
 
-  private async handleUpdateTestCase(testCaseId: number, data: UpdateTestCase): Promise<void> {
+  private async handleUpdateTestCase(
+    testCaseId: number,
+    data: UpdateTestCase
+  ): Promise<void> {
     try {
       // Update the test case
       const updatedTestCase = await this.client.cases.update(testCaseId, data);
-      
+
       // Refresh the webview with updated content
-      const webviewManager = WebviewManager.getInstance();
-      const panel = webviewManager.getExistingPanel('testCase', testCaseId);
-      
+      const reactWebviewProvider = ReactWebviewProvider.getInstance(
+        this.context.extensionUri
+      );
+      const panel = reactWebviewProvider.getExistingPanel(
+        "testCase",
+        testCaseId
+      );
+
       if (panel) {
         try {
           // Get attachments for the test case
-          const attachments = await this.client.attachments.getForCase(testCaseId);
+          const attachments = await this.client.attachments.getForCase(
+            testCaseId
+          );
 
           // Completely refresh the webview with new content instead of partial update
-          const host = this.auth.getHost();
+          const host = await this.auth.getHost();
           if (host) {
-            panel.webview.html = await getTestCaseWebviewContent(
-              updatedTestCase,
+            // Update the webview with the new data instead of refreshing the HTML
+            reactWebviewProvider.updatePanelData("testCase", testCaseId, {
+              testCase: updatedTestCase,
               host,
-              attachments
-            );
+              attachments,
+            });
           }
-          
+
           // Show success message after webview is updated
-          vscode.window.showInformationMessage('Test case updated successfully');
+          vscode.window.showInformationMessage(
+            "Test case updated successfully"
+          );
         } catch (innerError) {
-          console.error('Error updating webview:', innerError);
+          console.error("Error updating webview:", innerError);
           // Even if webview update fails, still show success for the save operation
-          vscode.window.showInformationMessage('Test case updated successfully, but view refresh failed');
-          
+          vscode.window.showInformationMessage(
+            "Test case updated successfully, but view refresh failed"
+          );
+
           // Force reset the save button
           panel.webview.postMessage({
-            type: 'resetSaveButton'
+            type: "resetSaveButton",
           });
         }
       } else {
         // No panel found, just show success message
-        vscode.window.showInformationMessage('Test case updated successfully');
+        vscode.window.showInformationMessage("Test case updated successfully");
       }
-      
-      vscode.commands.executeCommand('vscode-testrail.refresh');
+
+      vscode.commands.executeCommand("vscode-testrail.refresh");
     } catch (error) {
       vscode.window.showErrorMessage(`Failed to update test case: ${error}`);
-      
+
       // Try to reset the save button on error
       try {
-        const webviewManager = WebviewManager.getInstance();
-        const panel = webviewManager.getExistingPanel('testCase', testCaseId);
+        const reactWebviewProvider = ReactWebviewProvider.getInstance(
+          this.context.extensionUri
+        );
+        const panel = reactWebviewProvider.getExistingPanel(
+          "testCase",
+          testCaseId
+        );
         if (panel) {
           panel.webview.postMessage({
-            type: 'resetSaveButton'
+            type: "resetSaveButton",
           });
         }
       } catch (e) {
-        console.error('Failed to reset save button:', e);
+        console.error("Failed to reset save button:", e);
       }
     }
   }
 
-  private async handleUploadAttachment(testCaseId: number): Promise<void> {
+  private async handleUploadAttachment(
+    testCaseId: number,
+    data: any
+  ): Promise<void> {
     try {
-      const result = await vscode.window.showOpenDialog({
-        canSelectMany: false,
-        openLabel: 'Upload',
-      });
+      if (!data) {
+        // Fallback to file dialog if no data is provided
+        const result = await vscode.window.showOpenDialog({
+          canSelectMany: false,
+          openLabel: "Upload",
+        });
 
-      if (!result || result.length === 0) return;
+        if (!result || result.length === 0) return;
 
-      const filePath = result[0].fsPath;
-      await this.client.attachments.addToCase(testCaseId, filePath);
+        const filePath = result[0].fsPath;
+        await this.client.attachments.addToCase(testCaseId, filePath);
+      } else {
+        // Use the file data sent from the frontend
+        const { fileName, fileData } = data;
+
+        // Create a temporary file
+        const tempDir = os.tmpdir();
+        const tempFilePath = path.join(tempDir, fileName);
+
+        // Write the base64 data to the temporary file
+        fs.writeFileSync(tempFilePath, Buffer.from(fileData, "base64"));
+
+        // Upload the file
+        await this.client.attachments.addToCase(testCaseId, tempFilePath);
+
+        // Clean up the temporary file
+        fs.unlinkSync(tempFilePath);
+      }
 
       // Refresh attachments list
       const attachments = await this.client.attachments.getForCase(testCaseId);
-      
+
       // Get the updated test case
       const updatedTestCase = await this.client.cases.get(testCaseId);
-      
+
       // Completely refresh the webview with new content
-      const host = this.auth.getHost();
+      const host = await this.auth.getHost();
       if (host) {
-        // Find the panel using WebviewManager
-        const webviewManager = WebviewManager.getInstance();
-        const panel = webviewManager.getExistingPanel('testCase', testCaseId);
-        
-        if (panel) {
-          panel.webview.html = await getTestCaseWebviewContent(
-            updatedTestCase,
-            host,
-            attachments
-          );
-        }
+        // Find the panel using ReactWebviewProvider
+        const reactWebviewProvider = ReactWebviewProvider.getInstance(
+          this.context.extensionUri
+        );
+
+        // Update the webview with the new data
+        reactWebviewProvider.updatePanelData("testCase", testCaseId, {
+          testCase: updatedTestCase,
+          host,
+          attachments,
+        });
       }
 
-      vscode.window.showInformationMessage('Attachment uploaded successfully');
+      vscode.window.showInformationMessage("Attachment uploaded successfully");
     } catch (error) {
       vscode.window.showErrorMessage(
-        `Failed to upload attachment: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to upload attachment: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
       );
     }
   }
@@ -296,75 +309,73 @@ export class TestCaseCommands {
     testCaseId: number
   ): Promise<void> {
     try {
-      console.log(`Deleting attachment with data_id: ${attachmentId}`);
-      
-      // The API expects the attachment ID, not the data_id
-      // We need to get the actual attachment by its data_id first
-      const attachments = await this.client.attachments.getForCase(testCaseId);
-      const attachment = attachments.find((a: Attachment) => a.data_id === attachmentId);
-      
-      if (!attachment) {
-        throw new Error(`Attachment with data_id ${attachmentId} not found`);
-      }
-      
-      console.log(`Found attachment: ${JSON.stringify(attachment)}`);
-      
-      // Make sure we have a valid numeric ID
-      if (!attachment.id) {
-        throw new Error('Attachment has no ID');
-      }
-      
+      console.log(`Deleting attachment with ID: ${attachmentId}`);
+
       // Ensure we're passing a number to the API
-      const numericId = typeof attachment.id === 'string' 
-        ? parseInt(attachment.id, 10) 
-        : attachment.id;
-        
+      const numericId =
+        typeof attachmentId === "string"
+          ? parseInt(attachmentId, 10)
+          : attachmentId;
+
       if (isNaN(numericId)) {
-        throw new Error(`Invalid attachment ID: ${attachment.id}`);
+        throw new Error(`Invalid attachment ID: ${attachmentId}`);
       }
-      
-      console.log(`Deleting attachment with ID: ${numericId}`);
+
+      console.log(`Deleting attachment with numeric ID: ${numericId}`);
       await this.client.attachments.delete(numericId);
 
       // Refresh attachments list
-      const updatedAttachments = await this.client.attachments.getForCase(testCaseId);
-      
+      const updatedAttachments = await this.client.attachments.getForCase(
+        testCaseId
+      );
+
       // Get the updated test case
       const updatedTestCase = await this.client.cases.get(testCaseId);
-      
+
       // Completely refresh the webview with new content
-      const host = this.auth.getHost();
+      const host = await this.auth.getHost();
       if (host) {
-        // Find the panel using WebviewManager
-        const webviewManager = WebviewManager.getInstance();
-        const panel = webviewManager.getExistingPanel('testCase', testCaseId);
-        
-        if (panel) {
-          panel.webview.html = await getTestCaseWebviewContent(
-            updatedTestCase,
-            host,
-            updatedAttachments
-          );
-        }
+        // Find the panel using ReactWebviewProvider
+        const reactWebviewProvider = ReactWebviewProvider.getInstance(
+          this.context.extensionUri
+        );
+
+        // Update the webview with the new data
+        reactWebviewProvider.updatePanelData("testCase", testCaseId, {
+          testCase: updatedTestCase,
+          host,
+          attachments: updatedAttachments,
+        });
       }
 
-      vscode.window.showInformationMessage('Attachment deleted successfully');
+      vscode.window.showInformationMessage("Attachment deleted successfully");
     } catch (error) {
-      console.error('Error deleting attachment:', error);
+      console.error("Error deleting attachment:", error);
       vscode.window.showErrorMessage(
-        `Failed to delete attachment: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to delete attachment: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
       );
     }
   }
 
-  private async handleGetAttachment(attachmentId: string, webview: vscode.Webview): Promise<void> {
+  private async handleGetAttachment(
+    attachmentId: string,
+    webview: vscode.Webview
+  ): Promise<void> {
     try {
       const buffer = await this.client.attachments.get(attachmentId);
-      const base64Data = buffer.toString('base64');
-      webview.postMessage({ type: 'attachmentData', id: attachmentId, data: base64Data });
+      const base64Data = buffer.toString("base64");
+      webview.postMessage({
+        type: "attachmentData",
+        id: attachmentId,
+        data: base64Data,
+      });
     } catch (error) {
       vscode.window.showErrorMessage(
-        `Failed to get attachment: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to get attachment: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
       );
     }
   }
@@ -373,25 +384,53 @@ export class TestCaseCommands {
     attachmentId: string,
     testCaseId: number
   ): Promise<void> {
-    console.log('Confirming delete for attachmentId:', attachmentId);
+    console.log("Confirming delete for attachmentId:", attachmentId);
     const confirm = await vscode.window.showWarningMessage(
-      'Are you sure you want to delete this attachment?\n\nThis action cannot be undone.',
+      "Are you sure you want to delete this attachment?\n\nThis action cannot be undone.",
       { modal: true },
-      'Delete'
+      "Delete"
     );
 
-    if (confirm === 'Delete') {
+    if (confirm === "Delete") {
       await this.handleDeleteAttachment(attachmentId, testCaseId);
     }
   }
 
-  async handleMoveTestCase(testCaseId: number, sectionId: number, suiteId: number): Promise<void> {
+  async handleMoveTestCase(
+    testCaseId: number,
+    sectionId: number,
+    suiteId: number
+  ): Promise<void> {
     try {
       await this.client.cases.moveToSection(sectionId, suiteId, [testCaseId]);
-      vscode.window.showInformationMessage('Test case moved successfully');
-      vscode.commands.executeCommand('vscode-testrail.refresh');
+      vscode.window.showInformationMessage("Test case moved successfully");
+      vscode.commands.executeCommand("vscode-testrail.refresh");
     } catch (error) {
       vscode.window.showErrorMessage(`Failed to move test case: ${error}`);
+    }
+  }
+
+  private async handleDownloadAttachment(
+    attachmentId: string,
+    filename: string
+  ): Promise<void> {
+    try {
+      const buffer = await this.client.attachments.get(attachmentId);
+
+      // Save to a temporary file
+      const filePath = path.join(os.tmpdir(), filename);
+      fs.writeFileSync(filePath, buffer);
+
+      // Open the file with the default application
+      vscode.env.openExternal(vscode.Uri.file(filePath));
+
+      vscode.window.showInformationMessage(`Opening ${filename}`);
+    } catch (error) {
+      vscode.window.showErrorMessage(
+        `Failed to download attachment: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
     }
   }
 }

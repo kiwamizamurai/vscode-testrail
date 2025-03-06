@@ -2,7 +2,7 @@
   "name": "testrail-vscode",
   "displayName": "TestRail",
   "description": "TestRail integration for Visual Studio Code",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "publisher": "kiwamizamurai-vscode",
   "author": {
     "name": "kiwamizamurai",
@@ -278,8 +278,8 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
+    "compile": "webpack --mode production",
+    "watch": "webpack --mode development --watch",
     "format": "biome format --write .",
     "lint": "biome lint .",
     "check": "biome check --apply .",
@@ -287,13 +287,23 @@
     "publish": "vsce publish"
   },
   "devDependencies": {
+    "@types/form-data": "^2.5.2",
     "@types/node": "^20.11.19",
+    "@types/react": "^18.2.55",
+    "@types/react-dom": "^18.2.19",
     "@types/vscode": "^1.86.0",
     "@vscode/vsce": "^2.24.0",
     "biome": "^0.2.2",
-    "typescript": "^5.3.3"
+    "css-loader": "^6.10.0",
+    "mini-css-extract-plugin": "^2.8.0",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.3.3",
+    "webpack": "^5.90.1",
+    "webpack-cli": "^5.1.4"
   },
   "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "testrail-modern-client": "^1.1.1"
   }
 }
