@@ -15,8 +15,13 @@
     "baseUrl": "./",
     "jsx": "react",
     "skipLibCheck": true,
-    "typeRoots": ["./node_modules/@types", "./src/webview/react"]
+    "typeRoots": ["./node_modules/@types", "./src/webview/react", "./src/webview/react/views", "./src/types"]
   },
-  "include": ["src", "src/webview/react/global.d.ts"],
+  "include": [
+    "src",
+    "src/webview/react/global.d.ts",
+    "src/webview/react/views/index.d.ts",
+    "src/types/form-data.d.ts"
+  ],
   "exclude": ["node_modules", ".vscode-test"]
 }
