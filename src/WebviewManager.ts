@@ -1,4 +1,4 @@
-import * as vscode from 'vscode';
+import * as vscode from "vscode";
 
 /**
  * Manages webview panels to prevent duplicate panels for the same item
@@ -41,7 +41,12 @@ export class WebviewManager {
     }
 
     // Otherwise, create a new panel
-    const panel = vscode.window.createWebviewPanel(viewType, title, column, options);
+    const panel = vscode.window.createWebviewPanel(
+      viewType,
+      title,
+      column,
+      options
+    );
 
     // Add it to our map
     this.panels.set(panelKey, panel);
@@ -57,8 +62,11 @@ export class WebviewManager {
   /**
    * Gets an existing webview panel for the specified item
    */
-  public getExistingPanel(viewType: string, itemId: number): vscode.WebviewPanel | undefined {
+  public getExistingPanel(
+    viewType: string,
+    itemId: number
+  ): vscode.WebviewPanel | undefined {
     const panelKey = `${viewType}-${itemId}`;
     return this.panels.get(panelKey);
   }
-} 
+}
