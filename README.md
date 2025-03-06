@@ -1,7 +1,7 @@
 # TestRail VSCode Extension
 
-> [!NOTE]
-> This project is unstable. I plan to conduct extensive refactoring and implement testing in the future, though the timeline remains undetermined. Should the system suddenly cease to function, please revert to a previous version.​​​​​​​​​​​
+> [!IMPORTANT]
+> If you appreciate this project, please consider giving it [a star on GitHub](https://github.com/kiwamizamurai/vscode-testrail) or leaving [a review on the Visual Studio Code Marketplace](https://marketplace.visualstudio.com/items?itemName=kiwamizamurai-vscode.testrail-vscode&ssr=false#review-details).
 
 <div align="center">
 
@@ -58,7 +58,7 @@ This is an open-source alternative to the [Paid extension by Railflow](https://r
 1. Click the TestRail icon in the activity bar
 2. Click "Login" and enter your credentials:
    ```
-   Host URL: https://example.testrail.io
+   Host URL: https://example.testrail.io or https://example.tmxtestrail.com
    Email: your.email@example.com
    API Key:  Generate from TestRail > My Settings > API Keys
    ```
@@ -67,13 +67,16 @@ This is an open-source alternative to the [Paid extension by Railflow](https://r
 ## 🛠️ Development
 
 ### Running & Debugging
+
 1. Clone the repository
+
    ```bash
    git clone https://github.com/kiwamizamurai/vscode-testrail.git
    cd vscode-testrail
    ```
 
 2. Install dependencies
+
    ```bash
    npm install
    ```
@@ -92,3 +95,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - [TestRail API Documentation](https://support.testrail.com/hc/en-us/articles/7077083596436-Introduction-to-the-TestRail-API)
 - [VS Code Webview API](https://code.visualstudio.com/api/extension-guides/webview)
+- [testrail-modern-client](https://github.com/kiwamizamurai/testrail-modern-client)
