@@ -7,7 +7,7 @@ import {
 } from './webview/index';
 
 export {
-  getTestCaseWebviewContent as getWebviewContent,
+  getTestCaseWebviewContent,
   getSuiteWebviewContent,
   getSectionWebviewContent,
   getRunWebviewContent,

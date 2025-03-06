@@ -53,4 +53,12 @@ export class WebviewManager {
 
     return panel;
   }
+
+  /**
+   * Gets an existing webview panel for the specified item
+   */
+  public getExistingPanel(viewType: string, itemId: number): vscode.WebviewPanel | undefined {
+    const panelKey = `${viewType}-${itemId}`;
+    return this.panels.get(panelKey);
+  }
 } 

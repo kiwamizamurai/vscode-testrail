@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
-import { TestCase, UpdateTestCase, TestRailClient } from 'testrail-modern-client';
+import { TestCase, UpdateTestCase, TestRailClient, Attachment } from 'testrail-modern-client';
 import { TestRailAuth } from '../auth';
-import { getWebviewContent } from '../webview';
+import { getTestCaseWebviewContent } from '../webview';
 import { SectionItem } from '../treeView';
 import { WebviewManager } from '../WebviewManager';
 
@@ -19,42 +19,103 @@ export class TestCaseCommands {
       testCase.id
     );
 
+    // Set initial loading HTML
+    panel.webview.html = `<!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Loading Test Case...</title>
+      <style>
+        body {
+          font-family: var(--vscode-font-family);
+          background-color: var(--vscode-editor-background);
+          color: var(--vscode-editor-foreground);
+          padding: 0;
+          margin: 0;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          height: 100vh;
+        }
+        .loading-container {
+          text-align: center;
+        }
+        .spinner {
+          width: 50px;
+          height: 50px;
+          border: 5px solid rgba(255, 255, 255, 0.3);
+          border-radius: 50%;
+          border-top: 5px solid var(--vscode-progressBar-background);
+          animation: spin 1s linear infinite;
+          margin: 0 auto 20px;
+        }
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="loading-container">
+        <div class="spinner"></div>
+        <h2>Loading Test Case...</h2>
+        <p>Please wait while we fetch the test case details.</p>
+      </div>
+    </body>
+    </html>`;
+
     const host = this.auth.getHost();
     if (!host) {
       vscode.window.showErrorMessage('TestRail host is not configured');
       return;
     }
 
-    // Get attachments for the test case
-    const attachments = await this.client.attachments.getForCase(testCase.id);
-    console.log('Fetched attachments:', JSON.stringify(attachments, null, 2));
-    panel.webview.html = await getWebviewContent(testCase, host, attachments);
+    try {
+      // Get attachments for the test case
+      const attachments = await this.client.attachments.getForCase(testCase.id);
 
-    panel.webview.onDidReceiveMessage(async (message) => {
-      try {
-        switch (message.command) {
-          case 'updateTestCase':
-            await this.handleUpdateTestCase(testCase.id, message.data);
-            break;
-          case 'deleteTestCase':
-            await this.handleDeleteTestCase(testCase);
-            break;
-          case 'upload':
-            await this.handleUploadAttachment(testCase.id, panel.webview);
-            break;
-          case 'confirmDeleteAttachment':
-            await this.handleConfirmDeleteAttachment(message.id, panel.webview, testCase.id);
-            break;
-          case 'getAttachment':
-            await this.handleGetAttachment(message.id, panel.webview);
-            break;
+      // Use the imported function instead of requiring it
+      panel.webview.html = await getTestCaseWebviewContent(
+        testCase, 
+        host, 
+        attachments,
+      );
+
+      panel.webview.onDidReceiveMessage(async (message) => {
+        try {
+          switch (message.command) {
+            case 'updateTestCase':
+              await this.handleUpdateTestCase(testCase.id, message.data);
+              break;
+            case 'deleteTestCase':
+              await this.handleDeleteTestCase(testCase);
+              break;
+            case 'upload':
+              await this.handleUploadAttachment(testCase.id);
+              break;
+            case 'confirmDeleteAttachment':
+              await this.handleConfirmDeleteAttachment(message.id, testCase.id);
+              break;
+            case 'getAttachment':
+              await this.handleGetAttachment(message.id, panel.webview);
+              break;
+            case 'moveTestCase':
+              await this.handleMoveTestCase(testCase.id, message.data.sectionId, message.data.suiteId);
+              break;
+          }
+        } catch (error) {
+          vscode.window.showErrorMessage(
+            `Operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+          );
         }
-      } catch (error) {
-        vscode.window.showErrorMessage(
-          `Operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-        );
-      }
-    });
+      });
+    } catch (error) {
+      console.error('Error setting up test case webview:', error);
+      vscode.window.showErrorMessage(
+        `Failed to load test case details: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
   }
 
   async handleAddTestCase(arg: SectionItem): Promise<TestCase | void> {
@@ -130,15 +191,65 @@ export class TestCaseCommands {
 
   private async handleUpdateTestCase(testCaseId: number, data: UpdateTestCase): Promise<void> {
     try {
-      await this.client.cases.update(testCaseId, data);
-      vscode.window.showInformationMessage('Test case updated successfully');
+      // Update the test case
+      const updatedTestCase = await this.client.cases.update(testCaseId, data);
+      
+      // Refresh the webview with updated content
+      const webviewManager = WebviewManager.getInstance();
+      const panel = webviewManager.getExistingPanel('testCase', testCaseId);
+      
+      if (panel) {
+        try {
+          // Get attachments for the test case
+          const attachments = await this.client.attachments.getForCase(testCaseId);
+
+          // Completely refresh the webview with new content instead of partial update
+          const host = this.auth.getHost();
+          if (host) {
+            panel.webview.html = await getTestCaseWebviewContent(
+              updatedTestCase,
+              host,
+              attachments
+            );
+          }
+          
+          // Show success message after webview is updated
+          vscode.window.showInformationMessage('Test case updated successfully');
+        } catch (innerError) {
+          console.error('Error updating webview:', innerError);
+          // Even if webview update fails, still show success for the save operation
+          vscode.window.showInformationMessage('Test case updated successfully, but view refresh failed');
+          
+          // Force reset the save button
+          panel.webview.postMessage({
+            type: 'resetSaveButton'
+          });
+        }
+      } else {
+        // No panel found, just show success message
+        vscode.window.showInformationMessage('Test case updated successfully');
+      }
+      
       vscode.commands.executeCommand('vscode-testrail.refresh');
     } catch (error) {
       vscode.window.showErrorMessage(`Failed to update test case: ${error}`);
+      
+      // Try to reset the save button on error
+      try {
+        const webviewManager = WebviewManager.getInstance();
+        const panel = webviewManager.getExistingPanel('testCase', testCaseId);
+        if (panel) {
+          panel.webview.postMessage({
+            type: 'resetSaveButton'
+          });
+        }
+      } catch (e) {
+        console.error('Failed to reset save button:', e);
+      }
     }
   }
 
-  private async handleUploadAttachment(testCaseId: number, webview: vscode.Webview): Promise<void> {
+  private async handleUploadAttachment(testCaseId: number): Promise<void> {
     try {
       const result = await vscode.window.showOpenDialog({
         canSelectMany: false,
@@ -152,7 +263,25 @@ export class TestCaseCommands {
 
       // Refresh attachments list
       const attachments = await this.client.attachments.getForCase(testCaseId);
-      webview.postMessage({ type: 'refreshAttachments', attachments });
+      
+      // Get the updated test case
+      const updatedTestCase = await this.client.cases.get(testCaseId);
+      
+      // Completely refresh the webview with new content
+      const host = this.auth.getHost();
+      if (host) {
+        // Find the panel using WebviewManager
+        const webviewManager = WebviewManager.getInstance();
+        const panel = webviewManager.getExistingPanel('testCase', testCaseId);
+        
+        if (panel) {
+          panel.webview.html = await getTestCaseWebviewContent(
+            updatedTestCase,
+            host,
+            attachments
+          );
+        }
+      }
 
       vscode.window.showInformationMessage('Attachment uploaded successfully');
     } catch (error) {
@@ -164,22 +293,64 @@ export class TestCaseCommands {
 
   private async handleDeleteAttachment(
     attachmentId: number | string,
-    webview: vscode.Webview,
     testCaseId: number
   ): Promise<void> {
     try {
-      console.log('Raw attachmentId:', attachmentId, 'Type:', typeof attachmentId);
-
-      await this.client.attachments.delete(attachmentId as number);
+      console.log(`Deleting attachment with data_id: ${attachmentId}`);
+      
+      // The API expects the attachment ID, not the data_id
+      // We need to get the actual attachment by its data_id first
+      const attachments = await this.client.attachments.getForCase(testCaseId);
+      const attachment = attachments.find((a: Attachment) => a.data_id === attachmentId);
+      
+      if (!attachment) {
+        throw new Error(`Attachment with data_id ${attachmentId} not found`);
+      }
+      
+      console.log(`Found attachment: ${JSON.stringify(attachment)}`);
+      
+      // Make sure we have a valid numeric ID
+      if (!attachment.id) {
+        throw new Error('Attachment has no ID');
+      }
+      
+      // Ensure we're passing a number to the API
+      const numericId = typeof attachment.id === 'string' 
+        ? parseInt(attachment.id, 10) 
+        : attachment.id;
+        
+      if (isNaN(numericId)) {
+        throw new Error(`Invalid attachment ID: ${attachment.id}`);
+      }
+      
+      console.log(`Deleting attachment with ID: ${numericId}`);
+      await this.client.attachments.delete(numericId);
 
       // Refresh attachments list
-      const attachments = await this.client.attachments.getForCase(testCaseId);
-      console.log('Fetched attachments after delete:', attachments);
-      webview.postMessage({ type: 'refreshAttachments', attachments });
+      const updatedAttachments = await this.client.attachments.getForCase(testCaseId);
+      
+      // Get the updated test case
+      const updatedTestCase = await this.client.cases.get(testCaseId);
+      
+      // Completely refresh the webview with new content
+      const host = this.auth.getHost();
+      if (host) {
+        // Find the panel using WebviewManager
+        const webviewManager = WebviewManager.getInstance();
+        const panel = webviewManager.getExistingPanel('testCase', testCaseId);
+        
+        if (panel) {
+          panel.webview.html = await getTestCaseWebviewContent(
+            updatedTestCase,
+            host,
+            updatedAttachments
+          );
+        }
+      }
 
       vscode.window.showInformationMessage('Attachment deleted successfully');
     } catch (error) {
-      console.error('Delete attachment error:', error);
+      console.error('Error deleting attachment:', error);
       vscode.window.showErrorMessage(
         `Failed to delete attachment: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
@@ -200,7 +371,6 @@ export class TestCaseCommands {
 
   private async handleConfirmDeleteAttachment(
     attachmentId: string,
-    webview: vscode.Webview,
     testCaseId: number
   ): Promise<void> {
     console.log('Confirming delete for attachmentId:', attachmentId);
@@ -211,7 +381,17 @@ export class TestCaseCommands {
     );
 
     if (confirm === 'Delete') {
-      await this.handleDeleteAttachment(attachmentId, webview, testCaseId);
+      await this.handleDeleteAttachment(attachmentId, testCaseId);
+    }
+  }
+
+  async handleMoveTestCase(testCaseId: number, sectionId: number, suiteId: number): Promise<void> {
+    try {
+      await this.client.cases.moveToSection(sectionId, suiteId, [testCaseId]);
+      vscode.window.showInformationMessage('Test case moved successfully');
+      vscode.commands.executeCommand('vscode-testrail.refresh');
+    } catch (error) {
+      vscode.window.showErrorMessage(`Failed to move test case: ${error}`);
     }
   }
 }

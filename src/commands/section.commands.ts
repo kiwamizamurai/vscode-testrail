@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { TestRailClient, Section } from 'testrail-modern-client';
+import { TestRailClient, Section, MoveSection } from 'testrail-modern-client';
 import { TestRailAuth } from '../auth';
 import { getSectionWebviewContent } from '../webview';
 import { SuiteItem, SectionItem } from '../treeView';
@@ -58,7 +58,15 @@ export class SectionCommands {
       return;
     }
 
-    panel.webview.html = await getSectionWebviewContent(sectionItem.section, host);
+    // Get all sections for the same suite
+    const allSections = await this.client.sections.list(sectionItem.projectId, sectionItem.section.suite_id);
+    
+    panel.webview.html = await getSectionWebviewContent(
+      sectionItem.section, 
+      host, 
+      allSections,
+      sectionItem.section.suite_id
+    );
 
     panel.webview.onDidReceiveMessage(async (message) => {
       switch (message.command) {
@@ -67,6 +75,9 @@ export class SectionCommands {
           break;
         case 'deleteSection':
           await this.handleDeleteSection(sectionItem);
+          break;
+        case 'moveSection':
+          await this.handleMoveSection(sectionItem.section.id, message.data);
           break;
       }
     });
@@ -105,6 +116,16 @@ export class SectionCommands {
       vscode.commands.executeCommand('vscode-testrail.refresh');
     } catch (error) {
       vscode.window.showErrorMessage(`Failed to update section: ${error}`);
+    }
+  }
+
+  async handleMoveSection(sectionId: number, moveData: MoveSection): Promise<void> {
+    try {
+      await this.client.sections.move(sectionId, moveData);
+      vscode.window.showInformationMessage('Section moved successfully');
+      vscode.commands.executeCommand('vscode-testrail.refresh');
+    } catch (error) {
+      vscode.window.showErrorMessage(`Failed to move section: ${error}`);
     }
   }
 }

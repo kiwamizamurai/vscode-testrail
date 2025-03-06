@@ -161,9 +161,89 @@ export class TestRailTreeProvider implements vscode.TreeDataProvider<TreeItem> {
       return [];
     }
   }
+
+  // Handle dropping a section or test case onto a section
+  async handleDrop(target: TreeItem, sources: vscode.DataTransfer): Promise<void> {
+    console.log('Handling drop event');
+    
+    // Only allow dropping onto sections
+    if (!(target instanceof SectionItem)) {
+      console.log('Target is not a section, ignoring drop');
+      return;
+    }
+    
+    const targetSection = target.section;
+    
+    try {
+      // Get the data from the transfer
+      const transferData = sources.get('application/vnd.code.tree.testRailExplorer')?.value;
+      if (!transferData) {
+        console.log('No valid transfer data found');
+        return;
+      }
+      
+      console.log('Transfer data:', transferData);
+      
+      // Check if we're dropping a section
+      if (transferData.type === 'section') {
+        console.log('Dropping section:', transferData);
+        await this.moveSection(transferData, targetSection.id);
+        return;
+      }
+      
+      // Check if we're dropping a test case
+      if (transferData.type === 'testCase') {
+        console.log('Dropping test case:', transferData);
+        await this.moveTestCase(transferData, targetSection.id, targetSection.suite_id);
+        return;
+      }
+      
+      console.log('No valid drop data found');
+    } catch (error) {
+      console.error('Error handling drop:', error);
+      vscode.window.showErrorMessage(
+        `Failed to move item: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+  
+  // Move a section to another section
+  private async moveSection(sectionData: any, targetSectionId: number): Promise<void> {
+    try {
+      await this.client.sections.move(sectionData.id, {
+        parent_id: targetSectionId
+      });
+      
+      vscode.window.showInformationMessage('Section moved successfully');
+      this.refresh();
+    } catch (error) {
+      console.error('Error moving section:', error);
+      throw error;
+    }
+  }
+  
+  // Move a test case to another section
+  private async moveTestCase(testCaseData: any, targetSectionId: number, targetSuiteId: number): Promise<void> {
+    try {
+      await this.client.cases.moveToSection(targetSectionId, targetSuiteId, [testCaseData.id]);
+      
+      vscode.window.showInformationMessage('Test case moved successfully');
+      this.refresh();
+    } catch (error) {
+      console.error('Error moving test case:', error);
+      throw error;
+    }
+  }
 }
 
 class TreeItem extends vscode.TreeItem {
+  public dragAndDropController?: {
+    handleDrag: () => {
+      supportedTypes: string[];
+      transferItem: any;
+    };
+  };
+
   constructor(
     public readonly label: string,
     public readonly collapsibleState: vscode.TreeItemCollapsibleState,
@@ -204,6 +284,23 @@ export class SectionItem extends TreeItem {
     this.tooltip = section.name;
     this.description = undefined;
     this.iconPath = new vscode.ThemeIcon('symbol-folder');
+    
+    // Add drag and drop support
+    this.id = `section-${section.id}`;
+    this.dragAndDropController = {
+      // Allow dragging this section
+      handleDrag: () => {
+        return {
+          supportedTypes: ['application/vnd.code.tree.testRailExplorer'],
+          transferItem: {
+            type: 'section',
+            id: section.id,
+            suiteId: section.suite_id,
+            projectId: this.projectId
+          }
+        };
+      }
+    };
   }
 }
 
@@ -230,6 +327,23 @@ export class TestCaseItem extends TreeItem {
       command: 'vscode-testrail.openTestCase',
       title: 'Open Test Case',
       arguments: [testCase],
+    };
+    
+    // Add drag and drop support
+    this.id = `testCase-${testCase.id}`;
+    this.dragAndDropController = {
+      // Allow dragging this test case
+      handleDrag: () => {
+        return {
+          supportedTypes: ['application/vnd.code.tree.testRailExplorer'],
+          transferItem: {
+            type: 'testCase',
+            id: testCase.id,
+            sectionId: testCase.section_id,
+            suiteId: testCase.suite_id
+          }
+        };
+      }
     };
   }
 }

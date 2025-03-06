@@ -175,6 +175,29 @@ export class ExtensionManager {
       const treeView = vscode.window.createTreeView('testRailExplorer', {
         treeDataProvider: this.treeDataProvider,
         showCollapseAll: true,
+        dragAndDropController: {
+          dropMimeTypes: ['application/vnd.code.tree.testRailExplorer'],
+          dragMimeTypes: ['application/vnd.code.tree.testRailExplorer'],
+          handleDrag: (source: readonly any[], dataTransfer: vscode.DataTransfer) => {
+            // Get the first item from the source
+            if (source.length > 0) {
+              const item = source[0];
+              
+              // Check if the item has a dragAndDropController
+              if (item.dragAndDropController) {
+                const dragData = item.dragAndDropController.handleDrag();
+                
+                // Add the data to the transfer
+                dataTransfer.set('application/vnd.code.tree.testRailExplorer', new vscode.DataTransferItem(dragData.transferItem));
+                
+                console.log('Drag data set:', dragData.transferItem);
+              }
+            }
+          },
+          handleDrop: async (target: any, sources: vscode.DataTransfer) => {
+            await this.treeDataProvider?.handleDrop(target, sources);
+          }
+        }
       });
       this.context.subscriptions.push(treeView);
     }

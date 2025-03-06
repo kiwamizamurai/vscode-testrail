@@ -2,7 +2,13 @@ import { Section } from 'testrail-modern-client';
 import { formatMarkdown } from '../utils/format';
 import { commonStyles } from './styles';
 
-export function getSectionWebviewContent(section: Section, host: string): string {
+export function getSectionWebviewContent(section: Section, host: string, allSections: Section[] = [], suiteId: number = section.suite_id): string {
+  const validParentSections = allSections.filter(s => 
+    s.id !== section.id && 
+    s.suite_id === suiteId && 
+    !isChildSection(allSections, s.id, section.id)
+  );
+
   return `
     <!DOCTYPE html>
     <html lang="en">
@@ -16,7 +22,10 @@ export function getSectionWebviewContent(section: Section, host: string): string
       <div class="header">
         <div class="section-header">
           <h1 id="name-content">${section.name}</h1>
-          <button class="icon-button" onclick="editAllSections()"><span>✏️</span> Edit</button>
+          <div class="button-group">
+            <button class="icon-button" onclick="editAllSections()"><span>✏️</span> Edit</button>
+            <button class="icon-button" onclick="showMoveDialog()"><span>🔄</span> Move</button>
+          </div>
         </div>
         <div id="name-edit" style="display: none;">
           <textarea id="name-textarea" style="min-height: 40px">${section.name}</textarea>
@@ -32,6 +41,24 @@ export function getSectionWebviewContent(section: Section, host: string): string
           <div class="meta-item">
             <span class="meta-label">ID:</span>
             <span>SE${section.id}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Move Dialog -->
+      <div id="move-dialog" class="modal" style="display: none;">
+        <div class="modal-content">
+          <h2>Move Section</h2>
+          <div class="form-group">
+            <label for="parent-section">Parent Section:</label>
+            <select id="parent-section" class="select-input">
+              <option value="">-- Root Level --</option>
+              ${validParentSections.map(s => `<option value="${s.id}">${s.name} (ID: ${s.id})</option>`).join('')}
+            </select>
+          </div>
+          <div class="button-row">
+            <button class="secondary" onclick="closeDialog('move-dialog')">Cancel</button>
+            <button class="primary" onclick="moveSection()">Move</button>
           </div>
         </div>
       </div>
@@ -125,8 +152,71 @@ export function getSectionWebviewContent(section: Section, host: string): string
             command: 'deleteSection'
           });
         }
+        
+        function showMoveDialog() {
+          document.getElementById('move-dialog').style.display = 'flex';
+        }
+        
+        function closeDialog(dialogId) {
+          document.getElementById(dialogId).style.display = 'none';
+        }
+        
+        function moveSection() {
+          const parentSectionSelect = document.getElementById('parent-section');
+          const parentId = parentSectionSelect.value;
+          
+          const moveData = {};
+          if (parentId) {
+            moveData.parent_id = parseInt(parentId, 10);
+          } else {
+            moveData.parent_id = null;
+          }
+          
+          vscode.postMessage({
+            command: 'moveSection',
+            data: moveData
+          });
+          
+          closeDialog('move-dialog');
+          showMoveConfirmation();
+        }
+        
+        function showMoveConfirmation() {
+          const confirmation = document.createElement('div');
+          confirmation.style.position = 'fixed';
+          confirmation.style.bottom = '20px';
+          confirmation.style.right = '20px';
+          confirmation.style.background = 'var(--vscode-editorInfo-background)';
+          confirmation.style.color = 'var(--vscode-editorInfo-foreground)';
+          confirmation.style.padding = '10px 16px';
+          confirmation.style.borderRadius = '4px';
+          confirmation.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+          confirmation.style.zIndex = '1000';
+          confirmation.textContent = 'Section moved successfully';
+          
+          document.body.appendChild(confirmation);
+          
+          setTimeout(() => {
+            confirmation.style.opacity = '0';
+            confirmation.style.transition = 'opacity 0.5s';
+            setTimeout(() => confirmation.remove(), 500);
+          }, 3000);
+        }
       </script>
     </body>
     </html>
   `;
+}
+
+function isChildSection(allSections: Section[], potentialParentId: number, childId: number): boolean {
+  const childSection = allSections.find(s => s.id === childId);
+  if (!childSection || !childSection.parent_id) {
+    return false;
+  }
+  
+  if (childSection.parent_id === potentialParentId) {
+    return true;
+  }
+  
+  return isChildSection(allSections, potentialParentId, childSection.parent_id);
 } 

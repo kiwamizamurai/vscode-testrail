@@ -22,8 +22,30 @@ This is an open-source alternative to the [Paid extension by Railflow](https://r
 ## ✨ Features
 
 - 🚀 **Quick Access** - One-click access to TestRail from VS Code
-- 🌳 **Tree View Integration** - Browse TestRail projects, suites, and test cases in VS Code's sidebar
-- 📋 **Easy Test Case Editor** - Quickly create new test cases by copying existing ones and edit test cases with full markdown support
+- 🌳 **Tree View Integration** - Browse TestRail projects, suites, sections, and test cases in VS Code's sidebar
+- 📋 **Test Case Management**
+  - View test case details with full markdown support
+  - Create new test cases
+  - Edit existing test cases
+  - Delete test cases
+  - Duplicate test cases
+- 📁 **Suite Management**
+  - Create new test suites
+  - Edit existing suites
+  - Delete suites
+- 📂 **Section Management**
+  - Create new sections
+  - Edit existing sections
+  - Delete sections
+- 🏃 **Test Run Management**
+  - Create new test runs
+  - Edit existing runs
+  - Close runs
+  - Delete runs
+- 📊 **Test Result Management**
+  - Add test results
+  - View test results history
+- 🔄 **Drag and Drop Support** - Easily reorganize test cases and sections
 
 ## 🚀 Installation
 

@@ -42,10 +42,6 @@ export function getBDDSection(testCase: TestCase): string {
 }
 
 export function getAttachmentsSection(attachments: Attachment[]): string {
-  if (attachments.length === 0) {
-    return '';
-  }
-
   return `
   <div class="section">
     <div class="section-header">

@@ -174,17 +174,47 @@ export const commonStyles = `
     top: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0,0,0,0.9);
+    background-color: rgba(0,0,0,0.7);
+    align-items: center;
+    justify-content: center;
   }
   .modal-content {
-    margin: auto; 
+    background: var(--vscode-editor-background);
+    padding: 20px;
+    border-radius: 6px;
+    max-width: 500px;
+    width: 100%;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  }
+  .modal-content h2 {
+    margin-top: 0;
+    margin-bottom: 16px;
+  }
+  .form-group {
+    margin-bottom: 16px;
+  }
+  .form-group label {
     display: block;
-    max-width: 90%;
-    max-height: 90%;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+  .form-group input, .form-group select {
+    width: 100%;
+    padding: 8px;
+    background: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border: 1px solid var(--vscode-input-border);
+    border-radius: 4px;
+  }
+  .button-row {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 20px;
+  }
+  .button-group {
+    display: flex;
+    gap: 8px;
   }
   .close {
     position: absolute; 
@@ -282,5 +312,13 @@ export const commonStyles = `
   }
   .status-retest {
     color: #2196F3;
+  }
+  .select-input {
+    width: 100%;
+    padding: 8px;
+    background: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border: 1px solid var(--vscode-input-border);
+    border-radius: 4px;
   }
 `; 
