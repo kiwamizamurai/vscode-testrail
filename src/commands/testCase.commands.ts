@@ -26,11 +26,34 @@ export class TestCaseCommands {
       // Get attachments
       const attachments = await this.client.attachments.getForCase(testCase.id);
 
+      // Get section to determine project ID
+      const section = await this.client.sections.get(testCase.section_id);
+
+      // Get suite to determine project ID if needed
+      let projectId: number;
+      if ("project_id" in section) {
+        projectId = (section as any).project_id;
+      } else {
+        // If section doesn't have project_id, get it from the suite
+        const suite = await this.client.suites.get(testCase.suite_id);
+        projectId = suite.project_id;
+      }
+
+      // Get metadata
+      const [caseTypes, priorities, templates] = await Promise.all([
+        this.getCaseTypes(),
+        this.getPriorities(),
+        this.getTemplates(projectId),
+      ]);
+
       // Prepare data for React webview
       const data = {
         testCase,
         host,
         attachments,
+        caseTypes,
+        priorities,
+        templates,
       };
 
       // Use ReactWebviewProvider instead of WebviewManager
@@ -68,6 +91,9 @@ export class TestCaseCommands {
               message.data.filename
             );
             break;
+          case "getTestCaseMetadata":
+            await this.handleGetTestCaseMetadata(projectId, panel.webview);
+            break;
         }
       });
     } catch (error) {
@@ -81,6 +107,14 @@ export class TestCaseCommands {
 
   async handleAddTestCase(arg: SectionItem): Promise<TestCase | void> {
     try {
+      // Get metadata first
+      const [caseTypes, priorities, templates] = await Promise.all([
+        this.getCaseTypes(),
+        this.getPriorities(),
+        this.getTemplates(arg.projectId),
+      ]);
+
+      // Get title
       const title = await vscode.window.showInputBox({
         prompt: "Enter test case title",
         placeHolder: "Test case title",
@@ -88,11 +122,74 @@ export class TestCaseCommands {
 
       if (!title) return;
 
+      // Select template
+      const templateItems = templates.map((t) => ({
+        label: t.name,
+        description: t.is_default ? "Default" : "",
+        id: t.id,
+      }));
+      // const defaultTemplate = templates.find((t) => t.is_default);
+      const selectedTemplate = await vscode.window.showQuickPick(
+        templateItems,
+        {
+          placeHolder: "Select template",
+          title: "Select Template",
+        }
+      );
+
+      if (!selectedTemplate) return;
+
+      // Select type
+      const typeItems = caseTypes.map((t) => ({
+        label: t.name,
+        description: t.is_default ? "Default" : "",
+        id: t.id,
+      }));
+      // const defaultType = caseTypes.find((t) => t.is_default);
+      const selectedType = await vscode.window.showQuickPick(typeItems, {
+        placeHolder: "Select case type",
+        title: "Select Case Type",
+      });
+
+      if (!selectedType) return;
+
+      // Select priority
+      const priorityItems = priorities.map((p) => ({
+        label: p.name,
+        description: p.is_default ? "Default" : "",
+        id: p.id,
+      }));
+      // const defaultPriority = priorities.find((p) => p.is_default);
+      const selectedPriority = await vscode.window.showQuickPick(
+        priorityItems,
+        {
+          placeHolder: "Select priority",
+          title: "Select Priority",
+        }
+      );
+
+      if (!selectedPriority) return;
+
+      // Get estimate
+      const estimate = await vscode.window.showInputBox({
+        prompt: "Enter time estimate (e.g. 30m, 2h 30m)",
+        placeHolder: "Time estimate (optional)",
+      });
+
+      // Get references
+      const refs = await vscode.window.showInputBox({
+        prompt: "Enter references (e.g. JIRA-123, JIRA-456)",
+        placeHolder: "References (optional)",
+      });
+
+      // Create the test case
       const testCase = await this.client.cases.add(arg.section.id, {
         title,
-        template_id: 1,
-        type_id: 1,
-        priority_id: 3,
+        template_id: selectedTemplate.id,
+        type_id: selectedType.id,
+        priority_id: selectedPriority.id,
+        estimate: estimate || undefined,
+        refs: refs || undefined,
       });
 
       vscode.window.showInformationMessage(
@@ -268,8 +365,10 @@ export class TestCaseCommands {
         // Upload the file
         await this.client.attachments.addToCase(testCaseId, tempFilePath);
 
-        // Clean up the temporary file
-        fs.unlinkSync(tempFilePath);
+        // Clean up the temporary file - check if it exists first
+        if (fs.existsSync(tempFilePath)) {
+          fs.unlinkSync(tempFilePath);
+        }
       }
 
       // Refresh attachments list
@@ -431,6 +530,69 @@ export class TestCaseCommands {
           error instanceof Error ? error.message : "Unknown error"
         }`
       );
+    }
+  }
+
+  /**
+   * Get case types from TestRail
+   */
+  private async getCaseTypes() {
+    try {
+      return await this.client.caseTypes.list();
+    } catch (error) {
+      console.error("Error fetching case types:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Get priorities from TestRail
+   */
+  private async getPriorities() {
+    try {
+      return await this.client.priorities.list();
+    } catch (error) {
+      console.error("Error fetching priorities:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Get templates from TestRail for a specific project
+   */
+  private async getTemplates(projectId: number) {
+    try {
+      return await this.client.templates.list(projectId);
+    } catch (error) {
+      console.error("Error fetching templates:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Handle request for test case metadata
+   */
+  private async handleGetTestCaseMetadata(
+    projectId: number,
+    webview: vscode.Webview
+  ) {
+    try {
+      const [caseTypes, priorities, templates] = await Promise.all([
+        this.getCaseTypes(),
+        this.getPriorities(),
+        this.getTemplates(projectId),
+      ]);
+
+      webview.postMessage({
+        type: "testCaseMetadata",
+        data: {
+          caseTypes,
+          priorities,
+          templates,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching test case metadata:", error);
     }
   }
 }

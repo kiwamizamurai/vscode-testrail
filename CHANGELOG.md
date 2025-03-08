@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2024-03-08
+
+### Added
+
+- MilestoneCommands to `ExtensionManager` class.
+- MilestoneView component to the switch case in the `App.tsx` file.
+- Milestone, MilestoneCategoryItem, SuiteCategoryItem, RunsCategoryItem classes.
+- Logic to display milestones, suites, and runs in the tree view.
+- Logic to filter completed milestones and runs.
+- Logic to display child milestones and sections in the tree view.
+- Methods to fetch case types, priorities, and templates.
+- Method to handle request for test case metadata.
+- Input prompts for estimate and references in `handleAddTestCase`.
+- File cleanup logic in `handleUploadAttachment`.
+- New state variables for metadata and template fields.
+- Error handling for undefined data in `ResultView` component.
+- Functions to handle creating and saving a new result.
+- Functions to handle canceling create and viewing attachments.
+
+### Changed
+
+- Updated version to 2.0.0.
+- Updated wording in `README.md` for clarity and consistency.
+- Updated `handleAddResult` method in `ResultCommands` class to handle direct result data objects from the webview.
+- Updated `handleViewResults` method to handle direct data provided in a message.
+- Updated `RunCommands` class to handle selecting a suite for `RunsCategoryItem` instances.
+- Updated import statements in `treeView.ts`.
+- Updated console.log statements and configuration retrieval to use double quotes.
+- Updated styles in `styles.css` for various elements.
+
 ## [1.3.1] - 2024-03-07
 
 ### Added

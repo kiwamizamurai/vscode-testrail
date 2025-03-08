@@ -2,7 +2,7 @@
   "name": "testrail-vscode",
   "displayName": "TestRail",
   "description": "TestRail integration for Visual Studio Code",
-  "version": "1.3.1",
+  "version": "2.0.0",
   "publisher": "kiwamizamurai-vscode",
   "author": {
     "name": "kiwamizamurai",
@@ -152,6 +152,21 @@
         "command": "vscode-testrail.viewResults",
         "title": "[v] Results",
         "category": "TestRail"
+      },
+      {
+        "command": "vscode-testrail.addMilestone",
+        "title": "[c] Milestone",
+        "category": "TestRail"
+      },
+      {
+        "command": "vscode-testrail.editMilestone",
+        "title": "[e] Milestone",
+        "category": "TestRail"
+      },
+      {
+        "command": "vscode-testrail.deleteMilestone",
+        "title": "[d] Milestone",
+        "category": "TestRail"
       }
     ],
     "menus": {
@@ -219,11 +234,6 @@
           "group": "inline"
         },
         {
-          "command": "vscode-testrail.addRun",
-          "when": "view == testRailExplorer && (viewItem == suite || viewItem == runsCategory)",
-          "group": "inline"
-        },
-        {
           "command": "vscode-testrail.editRun",
           "when": "view == testRailExplorer && viewItem == run",
           "group": "inline"
@@ -246,6 +256,41 @@
         {
           "command": "vscode-testrail.viewResults",
           "when": "view == testRailExplorer && viewItem == test",
+          "group": "inline"
+        },
+        {
+          "command": "vscode-testrail.addMilestone",
+          "when": "view == testRailExplorer && viewItem == project",
+          "group": "inline"
+        },
+        {
+          "command": "vscode-testrail.addMilestone",
+          "when": "view == testRailExplorer && viewItem == milestone",
+          "group": "inline"
+        },
+        {
+          "command": "vscode-testrail.editMilestone",
+          "when": "view == testRailExplorer && viewItem == milestone",
+          "group": "inline"
+        },
+        {
+          "command": "vscode-testrail.deleteMilestone",
+          "when": "view == testRailExplorer && viewItem == milestone",
+          "group": "inline"
+        },
+        {
+          "command": "vscode-testrail.addMilestone",
+          "when": "view == testRailExplorer && viewItem == milestoneCategory",
+          "group": "inline"
+        },
+        {
+          "command": "vscode-testrail.addSuite",
+          "when": "view == testRailExplorer && viewItem == suiteCategory",
+          "group": "inline"
+        },
+        {
+          "command": "vscode-testrail.addRun",
+          "when": "view == testRailExplorer && viewItem == runsCategory",
           "group": "inline"
         }
       ]

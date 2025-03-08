@@ -7,6 +7,7 @@ import { SuiteCommands } from "./commands/suite.commands";
 import { SectionCommands } from "./commands/section.commands";
 import { RunCommands } from "./commands/run.commands";
 import { ResultCommands } from "./commands/result.commands";
+import { MilestoneCommands } from "./commands/milestone.commands";
 
 export class ExtensionManager {
   private client: TestRailClient | undefined;
@@ -16,6 +17,7 @@ export class ExtensionManager {
   private sectionCommands: SectionCommands | undefined;
   private runCommands: RunCommands | undefined;
   private resultCommands: ResultCommands | undefined;
+  private milestoneCommands: MilestoneCommands | undefined;
   private basicCommandDisposables: vscode.Disposable[] = [];
 
   constructor(
@@ -132,6 +134,11 @@ export class ExtensionManager {
       this.auth,
       this.context
     );
+    this.milestoneCommands = new MilestoneCommands(
+      this.client,
+      this.auth,
+      this.context
+    );
 
     // Register client-dependent commands directly to context.subscriptions
     this.context.subscriptions.push(
@@ -204,6 +211,18 @@ export class ExtensionManager {
         (test, _run) => {
           this.resultCommands?.handleViewResults(test);
         }
+      ),
+
+      // Milestone commands
+      vscode.commands.registerCommand("vscode-testrail.addMilestone", (arg) =>
+        this.milestoneCommands?.handleAddMilestone(arg)
+      ),
+      vscode.commands.registerCommand("vscode-testrail.editMilestone", (arg) =>
+        this.milestoneCommands?.handleEditMilestone(arg)
+      ),
+      vscode.commands.registerCommand(
+        "vscode-testrail.deleteMilestone",
+        (arg) => this.milestoneCommands?.handleDeleteMilestone(arg)
       )
     );
   }
