@@ -1,6 +1,12 @@
 import React, { useState, useRef, useEffect } from "react";
 import { formatMarkdown, formatDate } from "../../../utils/format";
 
+// Template type constants
+const TEMPLATE_TEXT = 1; // Test Case (Text)
+const TEMPLATE_STEPS = 2; // Test Case (Steps)
+const TEMPLATE_EXPLORATORY = 3; // Exploratory Session
+const TEMPLATE_BDD = 4; // Behaviour Driven Development
+
 interface TestCase {
   id: number;
   title: string;
@@ -9,10 +15,43 @@ interface TestCase {
   priority_id: number;
   type_id: number;
   template_id: number;
+  project_id: number;
+  estimate?: string;
+  refs?: string;
   custom_steps: string;
   custom_expected: string;
   custom_preconds: string;
   custom_bdd_scenario: string;
+  custom_mission?: string;
+  custom_goals?: string;
+  custom_steps_separated?: {
+    content: string;
+    expected: string;
+  }[];
+  custom_testdata?: string;
+  custom_automation_tag?: string;
+  custom_automation_id?: string;
+  custom_testrail_bdd_scenario?: string;
+  custom_autotag?: string;
+}
+
+interface CaseType {
+  id: number;
+  name: string;
+  is_default: boolean;
+}
+
+interface Priority {
+  id: number;
+  name: string;
+  short_name: string;
+  is_default: boolean;
+}
+
+interface Template {
+  id: number;
+  name: string;
+  is_default: boolean;
 }
 
 interface Attachment {
@@ -29,6 +68,9 @@ interface TestCaseViewProps {
     testCase: TestCase;
     host: string;
     attachments: Attachment[];
+    caseTypes?: CaseType[];
+    priorities?: Priority[];
+    templates?: Template[];
   };
   vscode: {
     postMessage(message: any): void;
@@ -38,7 +80,14 @@ interface TestCaseViewProps {
 }
 
 export const TestCaseView: React.FC<TestCaseViewProps> = ({ data, vscode }) => {
-  const { testCase, host, attachments } = data;
+  const {
+    testCase,
+    host,
+    attachments,
+    caseTypes = [],
+    priorities = [],
+    templates = [],
+  } = data;
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState(testCase.title);
   const [steps, setSteps] = useState(testCase.custom_steps || "");
@@ -47,9 +96,37 @@ export const TestCaseView: React.FC<TestCaseViewProps> = ({ data, vscode }) => {
   const [bddScenario, setBddScenario] = useState(
     testCase.custom_bdd_scenario || ""
   );
+  const [mission, setMission] = useState(testCase.custom_mission || "");
+  const [goals, setGoals] = useState(testCase.custom_goals || "");
+  const [testData, setTestData] = useState(testCase.custom_testdata || "");
+  const [automationTag, setAutomationTag] = useState(
+    testCase.custom_autotag || ""
+  );
+  const [automationId, setAutomationId] = useState(
+    testCase.custom_automation_id || ""
+  );
+  const [exploratoryBddScenario, setExploratoryBddScenario] = useState(
+    testCase.custom_testrail_bdd_scenario || ""
+  );
+  const [stepsSeparated, setStepsSeparated] = useState(
+    testCase.custom_steps_separated || []
+  );
+  const [priorityId, setPriorityId] = useState(testCase.priority_id);
+  const [typeId, setTypeId] = useState(testCase.type_id);
+  const [templateId, setTemplateId] = useState(testCase.template_id);
+  const [estimate, setEstimate] = useState(testCase.estimate || "");
+  const [refs, setRefs] = useState(testCase.refs || "");
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [imageData, setImageData] = useState<Record<string, string>>({});
+
+  // Request metadata when component mounts
+  useEffect(() => {
+    vscode.postMessage({
+      type: "getTestCaseMetadata",
+    });
+  }, [vscode]);
 
   // Request attachment data for images when component mounts or attachments change
   useEffect(() => {
@@ -76,6 +153,16 @@ export const TestCaseView: React.FC<TestCaseViewProps> = ({ data, vscode }) => {
           ...prev,
           [message.id]: message.data,
         }));
+      } else if (message.type === "testCaseMetadata") {
+        // Update the component with the received metadata
+        const { caseTypes, priorities, templates } = message.data;
+        // We don't need to update state here as the data is already passed via props
+        console.log("Received metadata:", { caseTypes, priorities, templates });
+      } else if (message.type === "update") {
+        // Reset file input to prevent duplicate uploads
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
       }
     };
 
@@ -86,17 +173,62 @@ export const TestCaseView: React.FC<TestCaseViewProps> = ({ data, vscode }) => {
   }, []);
 
   const handleSave = () => {
+    // Prepare data based on template type
+    const saveData: any = {
+      id: testCase.id,
+      title,
+      priority_id: priorityId,
+      type_id: typeId,
+      template_id: templateId,
+      estimate,
+      refs,
+    };
+
+    // Add template-specific fields
+    switch (templateId) {
+      case TEMPLATE_TEXT:
+        saveData.custom_steps = steps;
+        saveData.custom_expected = expected;
+        saveData.custom_preconds = preconds;
+        saveData.custom_testdata = testData;
+        saveData.custom_automation_id = automationId;
+        saveData.custom_autotag = automationTag;
+        saveData.custom_testrail_bdd_scenario = exploratoryBddScenario;
+        break;
+      case TEMPLATE_STEPS:
+        saveData.custom_steps_separated = stepsSeparated;
+        saveData.custom_preconds = preconds;
+        saveData.custom_steps = steps;
+        saveData.custom_expected = expected;
+        saveData.custom_testdata = testData;
+        saveData.custom_automation_id = automationId;
+        saveData.custom_autotag = automationTag;
+        saveData.custom_testrail_bdd_scenario = exploratoryBddScenario;
+        break;
+      case TEMPLATE_EXPLORATORY:
+        saveData.custom_steps = steps;
+        saveData.custom_expected = expected;
+        saveData.custom_preconds = preconds;
+        saveData.custom_testrail_bdd_scenario = exploratoryBddScenario;
+        saveData.custom_testdata = testData;
+        saveData.custom_autotag = automationTag;
+        saveData.custom_automation_id = automationId;
+        saveData.custom_mission = mission;
+        saveData.custom_goals = goals;
+        break;
+      case TEMPLATE_BDD:
+        saveData.custom_bdd_scenario = bddScenario;
+        saveData.custom_preconds = preconds;
+        saveData.custom_expected = expected;
+        saveData.custom_testdata = testData;
+        saveData.custom_automation_id = automationId;
+        break;
+    }
+
     // Send the updated data to the extension
     vscode.postMessage({
       type: "saveTestCase",
-      data: {
-        id: testCase.id,
-        title,
-        custom_steps: steps,
-        custom_expected: expected,
-        custom_preconds: preconds,
-        custom_bdd_scenario: bddScenario,
-      },
+      data: saveData,
     });
     setIsEditing(false);
   };
@@ -107,6 +239,18 @@ export const TestCaseView: React.FC<TestCaseViewProps> = ({ data, vscode }) => {
     setExpected(testCase.custom_expected || "");
     setPreConds(testCase.custom_preconds || "");
     setBddScenario(testCase.custom_bdd_scenario || "");
+    setMission(testCase.custom_mission || "");
+    setGoals(testCase.custom_goals || "");
+    setTestData(testCase.custom_testdata || "");
+    setAutomationTag(testCase.custom_autotag || "");
+    setAutomationId(testCase.custom_automation_id || "");
+    setExploratoryBddScenario(testCase.custom_testrail_bdd_scenario || "");
+    setStepsSeparated(testCase.custom_steps_separated || []);
+    setPriorityId(testCase.priority_id);
+    setTypeId(testCase.type_id);
+    setTemplateId(testCase.template_id);
+    setEstimate(testCase.estimate || "");
+    setRefs(testCase.refs || "");
     setIsEditing(false);
   };
 
@@ -325,6 +469,1088 @@ export const TestCaseView: React.FC<TestCaseViewProps> = ({ data, vscode }) => {
     return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   };
 
+  // Handle template change
+  const handleTemplateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newTemplateId = Number(e.target.value);
+    setTemplateId(newTemplateId);
+  };
+
+  // Add a new separated step
+  const handleAddStep = () => {
+    setStepsSeparated([...stepsSeparated, { content: "", expected: "" }]);
+  };
+
+  // Update a separated step
+  const handleUpdateStep = (
+    index: number,
+    field: "content" | "expected",
+    value: string
+  ) => {
+    const updatedSteps = [...stepsSeparated];
+    updatedSteps[index][field] = value;
+    setStepsSeparated(updatedSteps);
+  };
+
+  // Remove a separated step
+  const handleRemoveStep = (index: number) => {
+    const updatedSteps = [...stepsSeparated];
+    updatedSteps.splice(index, 1);
+    setStepsSeparated(updatedSteps);
+  };
+
+  // Move a step up or down
+  const handleMoveStep = (index: number, direction: "up" | "down") => {
+    if (
+      (direction === "up" && index === 0) ||
+      (direction === "down" && index === stepsSeparated.length - 1)
+    ) {
+      return;
+    }
+
+    const updatedSteps = [...stepsSeparated];
+    const newIndex = direction === "up" ? index - 1 : index + 1;
+    const step = updatedSteps[index];
+    updatedSteps.splice(index, 1);
+    updatedSteps.splice(newIndex, 0, step);
+    setStepsSeparated(updatedSteps);
+  };
+
+  // Render form fields based on template type
+  const renderTemplateFields = () => {
+    if (!isEditing) {
+      // Render view mode based on template
+      switch (templateId) {
+        case TEMPLATE_BDD:
+          return (
+            <>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>BDD Scenario</h2>
+                </div>
+                <div className="section-content">
+                  <div
+                    dangerouslySetInnerHTML={{
+                      __html: formatMarkdown(bddScenario),
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Preconditions</h2>
+                </div>
+                <div className="section-content">
+                  <div
+                    dangerouslySetInnerHTML={{
+                      __html: formatMarkdown(preconds || ""),
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Expected Result</h2>
+                </div>
+                <div className="section-content">
+                  <div
+                    dangerouslySetInnerHTML={{
+                      __html: formatMarkdown(expected || ""),
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Test Data</h2>
+                </div>
+                <div className="section-content">
+                  <div
+                    dangerouslySetInnerHTML={{
+                      __html: formatMarkdown(testData || ""),
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Automation</h2>
+                </div>
+                <div className="section-content">
+                  <div className="meta-info" style={{ marginBottom: "10px" }}>
+                    <div className="meta-item">
+                      <span className="meta-label">Automation ID:</span>
+                      <span>{automationId || "Not specified"}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          );
+        case TEMPLATE_EXPLORATORY:
+          return (
+            <>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Mission</h2>
+                </div>
+                <div className="section-content">
+                  <div
+                    dangerouslySetInnerHTML={{
+                      __html: formatMarkdown(mission || ""),
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Goals</h2>
+                </div>
+                <div className="section-content">
+                  <div
+                    dangerouslySetInnerHTML={{
+                      __html: formatMarkdown(goals || ""),
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Preconditions</h2>
+                </div>
+                <div className="section-content">
+                  <div
+                    dangerouslySetInnerHTML={{
+                      __html: formatMarkdown(preconds || ""),
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Steps</h2>
+                </div>
+                <div className="section-content">
+                  <div
+                    dangerouslySetInnerHTML={{ __html: formatMarkdown(steps) }}
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Expected Result</h2>
+                </div>
+                <div className="section-content">
+                  <div
+                    dangerouslySetInnerHTML={{
+                      __html: formatMarkdown(expected || ""),
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Test Data</h2>
+                </div>
+                <div className="section-content">
+                  <div
+                    dangerouslySetInnerHTML={{
+                      __html: formatMarkdown(testData || ""),
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>BDD Scenarios</h2>
+                </div>
+                <div className="section-content">
+                  <div
+                    dangerouslySetInnerHTML={{
+                      __html: formatMarkdown(exploratoryBddScenario || ""),
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Automation</h2>
+                </div>
+                <div className="section-content">
+                  <div className="meta-info" style={{ marginBottom: "10px" }}>
+                    <div className="meta-item">
+                      <span className="meta-label">Automation Tag:</span>
+                      <span>{automationTag || "Not specified"}</span>
+                    </div>
+                    <div className="meta-item">
+                      <span className="meta-label">Automation ID:</span>
+                      <span>{automationId || "Not specified"}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          );
+        case TEMPLATE_STEPS:
+          return (
+            <>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Preconditions</h2>
+                </div>
+                <div className="section-content">
+                  <div
+                    dangerouslySetInnerHTML={{
+                      __html: formatMarkdown(preconds),
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Steps</h2>
+                </div>
+                <div className="section-content">
+                  <div
+                    dangerouslySetInnerHTML={{ __html: formatMarkdown(steps) }}
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Expected Result</h2>
+                </div>
+                <div className="section-content">
+                  <div
+                    dangerouslySetInnerHTML={{
+                      __html: formatMarkdown(expected),
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Test Data</h2>
+                </div>
+                <div className="section-content">
+                  <div
+                    dangerouslySetInnerHTML={{
+                      __html: formatMarkdown(testData || ""),
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Steps Separated</h2>
+                </div>
+                <div className="section-content">
+                  {stepsSeparated && stepsSeparated.length > 0 ? (
+                    <div className="steps-separated">
+                      {stepsSeparated.map((step, index) => (
+                        <div
+                          key={index}
+                          className="step-item"
+                          style={{
+                            marginBottom: "20px",
+                            padding: "10px",
+                            border: "1px solid var(--vscode-panel-border)",
+                          }}
+                        >
+                          <div
+                            className="step-number"
+                            style={{ fontWeight: "bold", marginBottom: "5px" }}
+                          >
+                            Step {index + 1}
+                          </div>
+                          <div
+                            className="step-content"
+                            style={{ marginBottom: "10px" }}
+                          >
+                            <div
+                              className="step-label"
+                              style={{
+                                fontWeight: "bold",
+                                marginBottom: "5px",
+                              }}
+                            >
+                              Description:
+                            </div>
+                            <div
+                              dangerouslySetInnerHTML={{
+                                __html: formatMarkdown(step.content),
+                              }}
+                            />
+                          </div>
+                          <div className="step-expected">
+                            <div
+                              className="step-label"
+                              style={{
+                                fontWeight: "bold",
+                                marginBottom: "5px",
+                              }}
+                            >
+                              Expected Result:
+                            </div>
+                            <div
+                              dangerouslySetInnerHTML={{
+                                __html: formatMarkdown(step.expected),
+                              }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div>No steps defined</div>
+                  )}
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>BDD Scenarios</h2>
+                </div>
+                <div className="section-content">
+                  <div
+                    dangerouslySetInnerHTML={{
+                      __html: formatMarkdown(exploratoryBddScenario || ""),
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Automation</h2>
+                </div>
+                <div className="section-content">
+                  <div className="meta-info" style={{ marginBottom: "10px" }}>
+                    <div className="meta-item">
+                      <span className="meta-label">Automation Tag:</span>
+                      <span>{automationTag || "Not specified"}</span>
+                    </div>
+                    <div className="meta-item">
+                      <span className="meta-label">Automation ID:</span>
+                      <span>{automationId || "Not specified"}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          );
+        case TEMPLATE_TEXT:
+        default:
+          return (
+            <>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Preconditions</h2>
+                </div>
+                <div className="section-content">
+                  <textarea
+                    value={preconds}
+                    onChange={(e) => setPreConds(e.target.value)}
+                    className="full-width-textarea"
+                    placeholder="Enter preconditions"
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Steps</h2>
+                </div>
+                <div className="section-content">
+                  <textarea
+                    value={steps}
+                    onChange={(e) => setSteps(e.target.value)}
+                    className="full-width-textarea"
+                    placeholder="Enter test steps"
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Expected Result</h2>
+                </div>
+                <div className="section-content">
+                  <textarea
+                    value={expected}
+                    onChange={(e) => setExpected(e.target.value)}
+                    className="full-width-textarea"
+                    placeholder="Enter expected result"
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Test Data</h2>
+                </div>
+                <div className="section-content">
+                  <textarea
+                    value={testData}
+                    onChange={(e) => setTestData(e.target.value)}
+                    className="full-width-textarea"
+                    placeholder="Enter test data"
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>BDD Scenarios</h2>
+                </div>
+                <div className="section-content">
+                  <textarea
+                    value={exploratoryBddScenario}
+                    onChange={(e) => setExploratoryBddScenario(e.target.value)}
+                    className="full-width-textarea"
+                    placeholder="Enter BDD scenarios"
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Automation</h2>
+                </div>
+                <div className="section-content">
+                  <div style={{ marginBottom: "15px" }}>
+                    <label
+                      style={{
+                        display: "block",
+                        marginBottom: "5px",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      Automation Tag:
+                    </label>
+                    <input
+                      type="text"
+                      value={automationTag}
+                      onChange={(e) => setAutomationTag(e.target.value)}
+                      placeholder="Enter automation tag"
+                      className="text-input"
+                      style={{ width: "100%" }}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        marginBottom: "5px",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      Automation ID:
+                    </label>
+                    <input
+                      type="text"
+                      value={automationId}
+                      onChange={(e) => setAutomationId(e.target.value)}
+                      placeholder="Enter automation ID"
+                      className="text-input"
+                      style={{ width: "100%" }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </>
+          );
+      }
+    } else {
+      // Render edit mode based on template
+      switch (templateId) {
+        case TEMPLATE_BDD:
+          return (
+            <>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>BDD Scenario</h2>
+                </div>
+                <div className="section-content">
+                  <textarea
+                    value={bddScenario}
+                    onChange={(e) => setBddScenario(e.target.value)}
+                    className="full-width-textarea"
+                    placeholder="Enter BDD scenario in Given-When-Then format"
+                    style={{ minHeight: "200px" }}
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Preconditions</h2>
+                </div>
+                <div className="section-content">
+                  <textarea
+                    value={preconds}
+                    onChange={(e) => setPreConds(e.target.value)}
+                    className="full-width-textarea"
+                    placeholder="Enter preconditions"
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Expected Result</h2>
+                </div>
+                <div className="section-content">
+                  <textarea
+                    value={expected}
+                    onChange={(e) => setExpected(e.target.value)}
+                    className="full-width-textarea"
+                    placeholder="Enter expected result"
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Test Data</h2>
+                </div>
+                <div className="section-content">
+                  <textarea
+                    value={testData}
+                    onChange={(e) => setTestData(e.target.value)}
+                    className="full-width-textarea"
+                    placeholder="Enter test data"
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Automation</h2>
+                </div>
+                <div className="section-content">
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        marginBottom: "5px",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      Automation ID:
+                    </label>
+                    <input
+                      type="text"
+                      value={automationId}
+                      onChange={(e) => setAutomationId(e.target.value)}
+                      placeholder="Enter automation ID"
+                      className="text-input"
+                      style={{ width: "100%" }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </>
+          );
+        case TEMPLATE_EXPLORATORY:
+          return (
+            <>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Mission</h2>
+                </div>
+                <div className="section-content">
+                  <textarea
+                    value={mission}
+                    onChange={(e) => setMission(e.target.value)}
+                    className="full-width-textarea"
+                    placeholder="Enter the mission for this exploratory session"
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Goals</h2>
+                </div>
+                <div className="section-content">
+                  <textarea
+                    value={goals}
+                    onChange={(e) => setGoals(e.target.value)}
+                    className="full-width-textarea"
+                    placeholder="Enter the goals for this exploratory session"
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Preconditions</h2>
+                </div>
+                <div className="section-content">
+                  <textarea
+                    value={preconds}
+                    onChange={(e) => setPreConds(e.target.value)}
+                    className="full-width-textarea"
+                    placeholder="Enter preconditions"
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Steps</h2>
+                </div>
+                <div className="section-content">
+                  <textarea
+                    value={steps}
+                    onChange={(e) => setSteps(e.target.value)}
+                    className="full-width-textarea"
+                    placeholder="Enter test steps"
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Expected Result</h2>
+                </div>
+                <div className="section-content">
+                  <textarea
+                    value={expected}
+                    onChange={(e) => setExpected(e.target.value)}
+                    className="full-width-textarea"
+                    placeholder="Enter expected result"
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Test Data</h2>
+                </div>
+                <div className="section-content">
+                  <textarea
+                    value={testData}
+                    onChange={(e) => setTestData(e.target.value)}
+                    className="full-width-textarea"
+                    placeholder="Enter test data"
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>BDD Scenarios</h2>
+                </div>
+                <div className="section-content">
+                  <textarea
+                    value={exploratoryBddScenario}
+                    onChange={(e) => setExploratoryBddScenario(e.target.value)}
+                    className="full-width-textarea"
+                    placeholder="Enter BDD scenarios"
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Automation</h2>
+                </div>
+                <div className="section-content">
+                  <div style={{ marginBottom: "15px" }}>
+                    <label
+                      style={{
+                        display: "block",
+                        marginBottom: "5px",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      Automation Tag:
+                    </label>
+                    <input
+                      type="text"
+                      value={automationTag}
+                      onChange={(e) => setAutomationTag(e.target.value)}
+                      placeholder="Enter automation tag"
+                      className="text-input"
+                      style={{ width: "100%" }}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        marginBottom: "5px",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      Automation ID:
+                    </label>
+                    <input
+                      type="text"
+                      value={automationId}
+                      onChange={(e) => setAutomationId(e.target.value)}
+                      placeholder="Enter automation ID"
+                      className="text-input"
+                      style={{ width: "100%" }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </>
+          );
+        case TEMPLATE_STEPS:
+          return (
+            <>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Preconditions</h2>
+                </div>
+                <div className="section-content">
+                  <textarea
+                    value={preconds}
+                    onChange={(e) => setPreConds(e.target.value)}
+                    className="full-width-textarea"
+                    placeholder="Enter preconditions"
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Steps</h2>
+                </div>
+                <div className="section-content">
+                  <textarea
+                    value={steps}
+                    onChange={(e) => setSteps(e.target.value)}
+                    className="full-width-textarea"
+                    placeholder="Enter test steps"
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Expected Result</h2>
+                </div>
+                <div className="section-content">
+                  <textarea
+                    value={expected}
+                    onChange={(e) => setExpected(e.target.value)}
+                    className="full-width-textarea"
+                    placeholder="Enter expected result"
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Test Data</h2>
+                </div>
+                <div className="section-content">
+                  <textarea
+                    value={testData}
+                    onChange={(e) => setTestData(e.target.value)}
+                    className="full-width-textarea"
+                    placeholder="Enter test data"
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Steps Separated</h2>
+                  <button
+                    onClick={handleAddStep}
+                    style={{
+                      backgroundColor: "var(--vscode-button-background)",
+                      color: "var(--vscode-button-foreground)",
+                      border: "none",
+                      padding: "6px 12px",
+                      borderRadius: "4px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Add Step
+                  </button>
+                </div>
+                <div className="section-content">
+                  {stepsSeparated.map((step, index) => (
+                    <div
+                      key={index}
+                      className="step-item"
+                      style={{
+                        marginBottom: "20px",
+                        padding: "10px",
+                        border: "1px solid var(--vscode-panel-border)",
+                        borderRadius: "4px",
+                      }}
+                    >
+                      <div
+                        className="step-header"
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          marginBottom: "10px",
+                        }}
+                      >
+                        <div
+                          className="step-number"
+                          style={{ fontWeight: "bold" }}
+                        >
+                          Step {index + 1}
+                        </div>
+                        <div className="step-actions">
+                          <button
+                            onClick={() => handleMoveStep(index, "up")}
+                            disabled={index === 0}
+                            style={{
+                              marginRight: "5px",
+                              opacity: index === 0 ? 0.5 : 1,
+                              cursor: index === 0 ? "default" : "pointer",
+                            }}
+                          >
+                            ↑
+                          </button>
+                          <button
+                            onClick={() => handleMoveStep(index, "down")}
+                            disabled={index === stepsSeparated.length - 1}
+                            style={{
+                              marginRight: "5px",
+                              opacity:
+                                index === stepsSeparated.length - 1 ? 0.5 : 1,
+                              cursor:
+                                index === stepsSeparated.length - 1
+                                  ? "default"
+                                  : "pointer",
+                            }}
+                          >
+                            ↓
+                          </button>
+                          <button
+                            onClick={() => handleRemoveStep(index)}
+                            style={{
+                              backgroundColor: "var(--vscode-errorForeground)",
+                              color: "white",
+                              border: "none",
+                              padding: "2px 6px",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", gap: "16px" }}>
+                        <div style={{ flex: 1 }}>
+                          <textarea
+                            value={step.content}
+                            onChange={(e) =>
+                              handleUpdateStep(index, "content", e.target.value)
+                            }
+                            className="full-width-textarea"
+                            placeholder="Enter step description"
+                            style={{
+                              width: "100%",
+                              minHeight: "150px",
+                              border: "1px solid var(--vscode-panel-border)",
+                              borderRadius: "4px",
+                              padding: "8px",
+                            }}
+                          />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <textarea
+                            value={step.expected}
+                            onChange={(e) =>
+                              handleUpdateStep(
+                                index,
+                                "expected",
+                                e.target.value
+                              )
+                            }
+                            className="full-width-textarea"
+                            placeholder="Enter expected result for this step"
+                            style={{
+                              width: "100%",
+                              minHeight: "150px",
+                              border: "1px solid var(--vscode-panel-border)",
+                              borderRadius: "4px",
+                              padding: "8px",
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {stepsSeparated.length === 0 && (
+                    <div style={{ marginBottom: "10px" }}>
+                      No steps defined. Click "Add Step" to create your first
+                      step.
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>BDD Scenarios</h2>
+                </div>
+                <div className="section-content">
+                  <textarea
+                    value={exploratoryBddScenario}
+                    onChange={(e) => setExploratoryBddScenario(e.target.value)}
+                    className="full-width-textarea"
+                    placeholder="Enter BDD scenarios"
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Automation</h2>
+                </div>
+                <div className="section-content">
+                  <div style={{ marginBottom: "15px" }}>
+                    <label
+                      style={{
+                        display: "block",
+                        marginBottom: "5px",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      Automation Tag:
+                    </label>
+                    <input
+                      type="text"
+                      value={automationTag}
+                      onChange={(e) => setAutomationTag(e.target.value)}
+                      placeholder="Enter automation tag"
+                      className="text-input"
+                      style={{ width: "100%" }}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        marginBottom: "5px",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      Automation ID:
+                    </label>
+                    <input
+                      type="text"
+                      value={automationId}
+                      onChange={(e) => setAutomationId(e.target.value)}
+                      placeholder="Enter automation ID"
+                      className="text-input"
+                      style={{ width: "100%" }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </>
+          );
+        case TEMPLATE_TEXT:
+        default:
+          return (
+            <>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Preconditions</h2>
+                </div>
+                <div className="section-content">
+                  <textarea
+                    value={preconds}
+                    onChange={(e) => setPreConds(e.target.value)}
+                    className="full-width-textarea"
+                    placeholder="Enter preconditions"
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Steps</h2>
+                </div>
+                <div className="section-content">
+                  <textarea
+                    value={steps}
+                    onChange={(e) => setSteps(e.target.value)}
+                    className="full-width-textarea"
+                    placeholder="Enter test steps"
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Expected Result</h2>
+                </div>
+                <div className="section-content">
+                  <textarea
+                    value={expected}
+                    onChange={(e) => setExpected(e.target.value)}
+                    className="full-width-textarea"
+                    placeholder="Enter expected result"
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Test Data</h2>
+                </div>
+                <div className="section-content">
+                  <textarea
+                    value={testData}
+                    onChange={(e) => setTestData(e.target.value)}
+                    className="full-width-textarea"
+                    placeholder="Enter test data"
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>BDD Scenarios</h2>
+                </div>
+                <div className="section-content">
+                  <textarea
+                    value={exploratoryBddScenario}
+                    onChange={(e) => setExploratoryBddScenario(e.target.value)}
+                    className="full-width-textarea"
+                    placeholder="Enter BDD scenarios"
+                  />
+                </div>
+              </div>
+              <div className="content-section">
+                <div className="section-header">
+                  <h2>Automation</h2>
+                </div>
+                <div className="section-content">
+                  <div style={{ marginBottom: "15px" }}>
+                    <label
+                      style={{
+                        display: "block",
+                        marginBottom: "5px",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      Automation Tag:
+                    </label>
+                    <input
+                      type="text"
+                      value={automationTag}
+                      onChange={(e) => setAutomationTag(e.target.value)}
+                      placeholder="Enter automation tag"
+                      className="text-input"
+                      style={{ width: "100%" }}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        marginBottom: "5px",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      Automation ID:
+                    </label>
+                    <input
+                      type="text"
+                      value={automationId}
+                      onChange={(e) => setAutomationId(e.target.value)}
+                      placeholder="Enter automation ID"
+                      className="text-input"
+                      style={{ width: "100%" }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </>
+          );
+      }
+    }
+  };
+
   return (
     <div className="container">
       <div className="header">
@@ -388,98 +1614,99 @@ export const TestCaseView: React.FC<TestCaseViewProps> = ({ data, vscode }) => {
           </div>
           <div className="meta-item">
             <span className="meta-label">Type:</span>
-            <span>Type {testCase.type_id}</span>
+            {isEditing ? (
+              <select
+                value={typeId}
+                onChange={(e) => setTypeId(Number(e.target.value))}
+                className="select-input"
+              >
+                {caseTypes.map((type) => (
+                  <option key={type.id} value={type.id}>
+                    {type.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span>
+                {caseTypes.find((t) => t.id === testCase.type_id)?.name ||
+                  `Type ${testCase.type_id}`}
+              </span>
+            )}
           </div>
           <div className="meta-item">
             <span className="meta-label">Priority:</span>
-            <span>P{testCase.priority_id}</span>
+            {isEditing ? (
+              <select
+                value={priorityId}
+                onChange={(e) => setPriorityId(Number(e.target.value))}
+                className="select-input"
+              >
+                {priorities.map((priority) => (
+                  <option key={priority.id} value={priority.id}>
+                    {priority.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span>
+                {priorities.find((p) => p.id === testCase.priority_id)?.name ||
+                  `P${testCase.priority_id}`}
+              </span>
+            )}
+          </div>
+          <div className="meta-item">
+            <span className="meta-label">Template:</span>
+            {isEditing ? (
+              <select
+                value={templateId}
+                onChange={handleTemplateChange}
+                className="select-input"
+              >
+                {templates.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span>
+                {templates.find((t) => t.id === testCase.template_id)?.name ||
+                  `Template ${testCase.template_id}`}
+              </span>
+            )}
+          </div>
+          <div className="meta-item">
+            <span className="meta-label">Estimate:</span>
+            {isEditing ? (
+              <input
+                type="text"
+                value={estimate}
+                onChange={(e) => setEstimate(e.target.value)}
+                placeholder="e.g. 30m or 2h 30m"
+                className="text-input"
+              />
+            ) : (
+              <span>{testCase.estimate || "Not specified"}</span>
+            )}
+          </div>
+          <div className="meta-item">
+            <span className="meta-label">References:</span>
+            {isEditing ? (
+              <input
+                type="text"
+                value={refs}
+                onChange={(e) => setRefs(e.target.value)}
+                placeholder="e.g. JIRA-123, JIRA-456"
+                className="text-input"
+              />
+            ) : (
+              <span>{testCase.refs || "Not specified"}</span>
+            )}
           </div>
         </div>
       </div>
 
-      {testCase.custom_bdd_scenario ? (
-        <div className="content-section">
-          <div className="section-header">
-            <h2>BDD Scenario</h2>
-          </div>
-          <div className="section-content">
-            {isEditing ? (
-              <textarea
-                value={bddScenario}
-                onChange={(e) => setBddScenario(e.target.value)}
-                className="full-width-textarea"
-              />
-            ) : (
-              <div
-                dangerouslySetInnerHTML={{
-                  __html: formatMarkdown(bddScenario),
-                }}
-              />
-            )}
-          </div>
-        </div>
-      ) : (
-        <>
-          <div className="content-section">
-            <div className="section-header">
-              <h2>Preconditions</h2>
-            </div>
-            <div className="section-content">
-              {isEditing ? (
-                <textarea
-                  value={preconds}
-                  onChange={(e) => setPreConds(e.target.value)}
-                  className="full-width-textarea"
-                />
-              ) : (
-                <div
-                  dangerouslySetInnerHTML={{
-                    __html: formatMarkdown(preconds),
-                  }}
-                />
-              )}
-            </div>
-          </div>
-
-          <div className="content-section">
-            <div className="section-header">
-              <h2>Steps</h2>
-            </div>
-            <div className="section-content">
-              {isEditing ? (
-                <textarea
-                  value={steps}
-                  onChange={(e) => setSteps(e.target.value)}
-                  className="full-width-textarea"
-                />
-              ) : (
-                <div
-                  dangerouslySetInnerHTML={{ __html: formatMarkdown(steps) }}
-                />
-              )}
-            </div>
-          </div>
-
-          <div className="content-section">
-            <div className="section-header">
-              <h2>Expected Result</h2>
-            </div>
-            <div className="section-content">
-              {isEditing ? (
-                <textarea
-                  value={expected}
-                  onChange={(e) => setExpected(e.target.value)}
-                  className="full-width-textarea"
-                />
-              ) : (
-                <div
-                  dangerouslySetInnerHTML={{ __html: formatMarkdown(expected) }}
-                />
-              )}
-            </div>
-          </div>
-        </>
-      )}
+      {renderTemplateFields()}
 
       <div className="content-section">
         <div className="section-header">

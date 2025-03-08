@@ -17,11 +17,32 @@ export class RunCommands {
   ): Promise<Run | void> {
     try {
       let projectId: number;
-      let suiteId: number;
+      let suiteId: number | undefined;
 
       if (arg instanceof RunsCategoryItem) {
         projectId = arg.projectId;
-        suiteId = arg.suiteId;
+        // For RunsCategoryItem, we need to ask the user which suite to use
+        const suites = await this.client.suites.list(projectId);
+        if (suites.length === 0) {
+          vscode.window.showErrorMessage("No suites found in this project");
+          return;
+        }
+
+        const suiteQuickPicks = suites.map((s) => ({
+          label: s.name,
+          description: `ID: ${s.id}`,
+          suite: s,
+        }));
+
+        const selectedSuite = await vscode.window.showQuickPick(
+          suiteQuickPicks,
+          {
+            placeHolder: "Select a suite for this run",
+          }
+        );
+
+        if (!selectedSuite) return; // User cancelled
+        suiteId = selectedSuite.suite.id;
       } else if (arg instanceof SuiteItem) {
         projectId = arg.projectId;
         suiteId = arg.suite.id;

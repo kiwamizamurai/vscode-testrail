@@ -6,6 +6,7 @@ declare module "views" {
   import SectionView from "./SectionView";
   import RunView from "./RunView";
   import ResultView from "./ResultView";
+  import MilestoneView from "./MilestoneView";
 
   // Export all components
   export {
@@ -15,5 +16,6 @@ declare module "views" {
     SectionView,
     RunView,
     ResultView,
+    MilestoneView,
   };
 }

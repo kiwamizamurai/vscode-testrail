@@ -5,6 +5,7 @@ import { SectionView } from "./views/SectionView";
 import { RunView } from "./views/RunView";
 import { TestView } from "./views/TestView";
 import { ResultView } from "./views/ResultView";
+import { MilestoneView } from "./views/MilestoneView";
 
 // Define the message types
 interface VSCodeMessage {
@@ -61,6 +62,8 @@ export const App: React.FC = () => {
       return <TestView data={data} vscode={vscode} />;
     case "result":
       return <ResultView data={data} vscode={vscode} />;
+    case "milestone":
+      return <MilestoneView data={data} vscode={vscode} />;
     default:
       return <div>Unknown view type: {viewType}</div>;
   }

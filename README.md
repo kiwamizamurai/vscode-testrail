@@ -1,7 +1,7 @@
 # TestRail VSCode Extension
 
 > [!IMPORTANT]
-> If you appreciate this project, please consider giving it [a star on GitHub](https://github.com/kiwamizamurai/vscode-testrail) or leaving [a review on the Visual Studio Code Marketplace](https://marketplace.visualstudio.com/items?itemName=kiwamizamurai-vscode.testrail-vscode&ssr=false#review-details).
+> If you like this project, please consider giving it [a star on GitHub](https://github.com/kiwamizamurai/vscode-testrail) or leaving [a review on the Visual Studio Code Marketplace](https://marketplace.visualstudio.com/items?itemName=kiwamizamurai-vscode.testrail-vscode&ssr=false#review-details).
 
 <div align="center">
 

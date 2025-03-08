@@ -11,13 +11,41 @@ export class ResultCommands {
     private context: vscode.ExtensionContext
   ) {}
 
-  async handleAddResult(arg: Test | TestItem): Promise<void> {
+  async handleAddResult(arg: Test | TestItem | any): Promise<void> {
     try {
+      // Check if arg is a direct result data object from the webview
+      if (arg && arg.test_id && arg.status_id) {
+        // Direct data from webview form
+        const testId = arg.test_id;
+        const statusId = arg.status_id;
+
+        // Create the result with the provided data
+        await this.client.results.add(testId, {
+          status_id: statusId,
+          comment: arg.comment || undefined,
+          defects: arg.defects || undefined,
+          elapsed: arg.elapsed || undefined,
+          version: arg.version || undefined,
+        });
+
+        // Refresh the view
+        vscode.commands.executeCommand("vscode-testrail.refresh");
+
+        // If there's an open panel for this test, update it
+        this.refreshResultView(testId);
+
+        return;
+      }
+
+      // Handle the case when arg is a Test or TestItem
       const test = arg instanceof TestItem ? arg.test : arg;
 
       // Get the status for the result
       const statuses = await this.client.statuses.list();
-      const statusOptions = statuses.map((status) => ({
+      // Filter out the "Untested" status which is not valid for API calls
+      const validStatuses = statuses.filter((status) => !status.is_untested);
+
+      const statusOptions = validStatuses.map((status) => ({
         label: status.name,
         description: status.label || "",
         id: status.id,
@@ -74,9 +102,56 @@ export class ResultCommands {
       vscode.window.showInformationMessage(
         `Result added successfully for test "${test.title}"`
       );
+
+      // Refresh the view
       vscode.commands.executeCommand("vscode-testrail.refresh");
+
+      // If there's an open panel for this test, update it
+      this.refreshResultView(test.id);
     } catch (error) {
       vscode.window.showErrorMessage(`Failed to add result: ${error}`);
+    }
+  }
+
+  // Helper method to refresh the result view if it's open
+  private async refreshResultView(testId: number): Promise<void> {
+    try {
+      // Get the ReactWebviewProvider instance
+      const reactWebviewProvider =
+        require("../ReactWebviewProvider").ReactWebviewProvider.getInstance(
+          this.context.extensionUri
+        );
+
+      // Check if there's an open panel for this test
+      const panel = reactWebviewProvider.getExistingPanel("result", testId);
+      if (panel) {
+        // Get the updated data
+        const host = await this.auth.getHost();
+        const results = await this.client.results.list(testId);
+        const statuses = await this.client.statuses.list();
+
+        // Get the test details
+        const test = await this.client.tests.get(testId);
+
+        // Get parent run if available
+        const parentRun = test.run_id
+          ? await this.client.runs.get(test.run_id)
+          : undefined;
+
+        // Prepare updated data
+        const data = {
+          test,
+          results,
+          statuses,
+          host,
+          parentRun,
+        };
+
+        // Update the panel
+        reactWebviewProvider.updatePanelData("result", testId, data);
+      }
+    } catch (error) {
+      console.error("Failed to refresh result view:", error);
     }
   }
 
@@ -124,7 +199,13 @@ export class ResultCommands {
       panel.webview.onDidReceiveMessage(async (message) => {
         switch (message.type) {
           case "addResult":
-            await this.handleAddResult(test);
+            if (message.data) {
+              // If data is provided, use it directly
+              await this.handleAddResult(message.data);
+            } else {
+              // Otherwise use the traditional dialog approach
+              await this.handleAddResult(test);
+            }
             break;
           case "deleteResult":
             await this.handleDeleteResult(message.resultId);
