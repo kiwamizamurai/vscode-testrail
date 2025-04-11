@@ -1,4 +1,4 @@
-import * as vscode from 'vscode';
+import * as vscode from "vscode";
 
 interface Credentials {
   email: string;
@@ -6,37 +6,39 @@ interface Credentials {
 }
 
 export class TestRailAuth {
-  private static readonly CREDENTIALS_KEY = 'testrail.credentials';
-  private static readonly HOST_KEY = 'testrail.host';
+  private static readonly CREDENTIALS_KEY = "testRail.credentials";
+  private static readonly HOST_KEY = "testRail.host";
   private credentials: Credentials | undefined;
   private host: string | undefined;
 
   constructor(private context: vscode.ExtensionContext) {}
 
   async init(): Promise<void> {
-    const storedCreds = await this.context.secrets.get(TestRailAuth.CREDENTIALS_KEY);
+    const storedCreds = await this.context.secrets.get(
+      TestRailAuth.CREDENTIALS_KEY
+    );
     this.credentials = storedCreds ? JSON.parse(storedCreds) : undefined;
     this.host = await this.context.globalState.get(TestRailAuth.HOST_KEY);
   }
 
   async login(): Promise<void> {
     const host = await vscode.window.showInputBox({
-      prompt: 'Enter your TestRail host URL',
-      placeHolder: 'https://example.testrail.io',
+      prompt: "Enter your TestRail host URL",
+      placeHolder: "https://example.testrail.io",
       value: this.host,
     });
 
     if (!host) return;
 
     const email = await vscode.window.showInputBox({
-      prompt: 'Enter your email',
+      prompt: "Enter your email",
       value: this.credentials?.email,
     });
 
     if (!email) return;
 
     const apiKey = await vscode.window.showInputBox({
-      prompt: 'Enter your API key or password',
+      prompt: "Enter your API key or password",
       password: true,
     });
 
@@ -61,7 +63,9 @@ export class TestRailAuth {
     await this.context.globalState.update(TestRailAuth.HOST_KEY, undefined);
   }
 
-  getStoredCredentials(): { host: string; email: string; apiKey: string } | undefined {
+  getStoredCredentials():
+    | { host: string; email: string; apiKey: string }
+    | undefined {
     if (!this.credentials || !this.host) return undefined;
     return {
       host: this.host,

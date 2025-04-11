@@ -6,6 +6,8 @@ import { RunView } from "./views/RunView";
 import { TestView } from "./views/TestView";
 import { ResultView } from "./views/ResultView";
 import { MilestoneView } from "./views/MilestoneView";
+import FeedbackView from "./views/FeedbackView";
+import { vscode } from "./vscodeApi";
 
 // Define the message types
 interface VSCodeMessage {
@@ -13,9 +15,6 @@ interface VSCodeMessage {
   viewType: string;
   data: any;
 }
-
-// Create a single instance of the VS Code API
-const vscode = acquireVsCodeApi();
 
 export const App: React.FC = () => {
   const [viewType, setViewType] = useState<string | null>(null);
@@ -64,6 +63,8 @@ export const App: React.FC = () => {
       return <ResultView data={data} vscode={vscode} />;
     case "milestone":
       return <MilestoneView data={data} vscode={vscode} />;
+    case "feedback":
+      return <FeedbackView data={data} />;
     default:
       return <div>Unknown view type: {viewType}</div>;
   }

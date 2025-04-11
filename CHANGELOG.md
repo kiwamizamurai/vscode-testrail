@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2024-07-01
+
+### Added
+
+- Test status management for test runs
+- Feedback system for submitting bugs and feature requests
+- GitHub issue creation from within the extension
+- FeedbackView component in the webview UI
+- Helper for safe VS Code webview API acquisition
+
+### Changed
+
+- Updated axios dependency from 1.7.9 to 1.8.4
+- Improved ReactWebviewProvider to handle potential conflicts with VS Code API
+- Updated string literals from single quotes to double quotes for consistency
+- Removed default template, type, and priority variables from test case commands
+- Enhanced result view with template-specific rendering
+- Simplified command titles to unified shortcuts (`[c]`, `[e]`, `[d]`, `[x]`, `[v]`)
+
 ## [2.0.0] - 2024-03-08
 
 ### Added

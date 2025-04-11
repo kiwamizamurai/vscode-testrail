@@ -187,10 +187,65 @@ export class RunCommands {
         return;
       }
 
+      // Get tests for this run
+      let tests: any[] = [];
+      try {
+        tests = await this.client.tests.list(run.id);
+        console.log(`Loaded ${tests.length} tests for run ${run.id}`);
+      } catch (error) {
+        console.error(`Error loading tests for run ${run.id}:`, error);
+      }
+
+      // Get statuses
+      let statuses: any[] = [];
+      try {
+        statuses = await this.client.statuses.list();
+        console.log(`Loaded ${statuses.length} statuses`);
+      } catch (error) {
+        console.error(`Error loading statuses:`, error);
+      }
+
+      // Collect test case IDs from tests
+      const caseIds = tests.map((test) => test.case_id);
+
+      // Get test cases for these tests (efficiently batch load them)
+      let testCases: Record<number, any> = {};
+      if (caseIds.length > 0) {
+        try {
+          // Group by project ID since TestRail API requires it
+          const testCasePromises = caseIds.map((caseId) =>
+            this.client.cases.get(caseId).catch((err) => {
+              console.error(`Error fetching case ${caseId}:`, err);
+              return null;
+            })
+          );
+
+          const loadedTestCases = await Promise.all(testCasePromises);
+
+          // Create a map of caseId -> testCase for easy access
+          testCases = loadedTestCases.reduce(
+            (acc: Record<number, any>, testCase) => {
+              if (testCase) {
+                acc[testCase.id] = testCase;
+              }
+              return acc;
+            },
+            {}
+          );
+
+          console.log(`Loaded ${Object.keys(testCases).length} test cases`);
+        } catch (error) {
+          console.error(`Error loading test cases:`, error);
+        }
+      }
+
       // Prepare data for React webview
       const data = {
         run,
         host,
+        tests,
+        statuses,
+        testCases,
       };
 
       // Use ReactWebviewProvider
@@ -216,6 +271,31 @@ export class RunCommands {
           case "closeRun":
             await this.handleCloseRun(run);
             break;
+          case "addResult":
+            try {
+              await this.client.results.add(message.data.test_id, {
+                status_id: message.data.status_id,
+                comment: message.data.comment || undefined,
+                defects: message.data.defects || undefined,
+                elapsed: message.data.elapsed || undefined,
+              });
+
+              // Update the panel with fresh data
+              await this.refreshRunViewData(run.id);
+
+              vscode.window.showInformationMessage(
+                "Test result added successfully"
+              );
+            } catch (error) {
+              console.error("Error adding test result:", error);
+              vscode.window.showErrorMessage(
+                `Failed to add test result: ${error}`
+              );
+            }
+            break;
+          case "getTests":
+            await this.refreshRunViewData(run.id);
+            break;
         }
       });
     } catch (error) {
@@ -224,6 +304,70 @@ export class RunCommands {
           error instanceof Error ? error.message : String(error)
         }`
       );
+    }
+  }
+
+  // Helper method to refresh run view data
+  private async refreshRunViewData(runId: number): Promise<void> {
+    try {
+      // Get fresh run data
+      const run = await this.client.runs.get(runId);
+
+      // Get host
+      const host = await this.auth.getHost();
+      if (!host) {
+        throw new Error("TestRail host is not configured");
+      }
+
+      // Get tests for this run
+      const tests: any[] = await this.client.tests.list(runId);
+
+      // Get statuses
+      const statuses: any[] = await this.client.statuses.list();
+
+      // Collect test case IDs from tests
+      const caseIds = tests.map((test) => test.case_id);
+
+      // Get test cases for these tests
+      let testCases: Record<number, any> = {};
+      if (caseIds.length > 0) {
+        const testCasePromises = caseIds.map((caseId) =>
+          this.client.cases.get(caseId).catch((err) => {
+            console.error(`Error fetching case ${caseId}:`, err);
+            return null;
+          })
+        );
+
+        const loadedTestCases = await Promise.all(testCasePromises);
+
+        // Create a map of caseId -> testCase for easy access
+        testCases = loadedTestCases.reduce(
+          (acc: Record<number, any>, testCase) => {
+            if (testCase) {
+              acc[testCase.id] = testCase;
+            }
+            return acc;
+          },
+          {}
+        );
+      }
+
+      // Update the webview data
+      const reactWebviewProvider = ReactWebviewProvider.getInstance(
+        this.context.extensionUri
+      );
+
+      // Update panel data
+      reactWebviewProvider.updatePanelData("run", runId, {
+        run,
+        host,
+        tests,
+        statuses,
+        testCases,
+      });
+    } catch (error) {
+      console.error("Error refreshing run view data:", error);
+      vscode.window.showErrorMessage(`Failed to refresh data: ${error}`);
     }
   }
 

@@ -23,6 +23,12 @@ This is an open-source alternative to the [Paid extension by Railflow](https://r
 
 - 🚀 **Quick Access** - One-click access to TestRail from VS Code
 - 🌳 **Tree View Integration** - Browse TestRail projects, suites, sections, and test cases in VS Code's sidebar
+- ⌨️ **Unified Command Shortcuts**
+  - `[c]` - Create new item
+  - `[e]` - Edit existing item
+  - `[d]` - Delete item
+  - `[x]` - Duplicate/Close item
+  - `[v]` - View details
 - 📋 **Test Case Management**
   - View test case details with full markdown support
   - Create new test cases
@@ -45,7 +51,9 @@ This is an open-source alternative to the [Paid extension by Railflow](https://r
 - 📊 **Test Result Management**
   - Add test results
   - View test results history
+  - Manage test statuses for runs
 - 🔄 **Drag and Drop Support** - Easily reorganize test cases and sections
+- 💬 **Feedback System** - Submit bug reports and feature requests directly from the extension
 
 ## 🚀 Installation
 
