@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { formatDate } from "../../../utils/format";
+import { formatDate, formatMarkdown } from "../../../utils/format";
 
 // Add type declarations to avoid linter errors
 declare namespace JSX {
@@ -35,12 +35,45 @@ interface Status {
   is_final: boolean;
 }
 
+// Test case interface
+interface TestCase {
+  id: number;
+  title: string;
+  custom_preconds?: string;
+  custom_steps?: string;
+  custom_expected?: string;
+  custom_steps_separated?: {
+    content: string;
+    expected: string;
+  }[];
+  custom_bdd_scenario?: string;
+  custom_mission?: string;
+  custom_goals?: string;
+  custom_testdata?: string;
+  custom_automation_tag?: string;
+  custom_automation_id?: string;
+  custom_testrail_bdd_scenario?: string;
+  custom_autotag?: string;
+  template_id: number;
+}
+
+// Template type constants
+const TEMPLATE_TEXT = 1; // Test Case (Text)
+const TEMPLATE_STEPS = 2; // Test Case (Steps)
+const TEMPLATE_EXPLORATORY = 3; // Exploratory Session
+const TEMPLATE_BDD = 4; // Behaviour Driven Development
+
 interface ResultViewProps {
   data: {
     test: {
       id: number;
       title: string;
+      case_id: number;
+      custom_preconds?: string;
+      custom_steps?: string;
+      custom_expected?: string;
     };
+    testCase?: TestCase;
     results: Result[];
     host: string;
     statuses: Status[];
@@ -63,7 +96,7 @@ export const ResultView: React.FC<ResultViewProps> = ({ data, vscode }) => {
     );
   }
 
-  const { test, results, host, statuses } = data;
+  const { test, testCase, results, host, statuses } = data;
 
   // State for create result form
   const [isCreatingResult, setIsCreatingResult] = useState(
@@ -175,109 +208,390 @@ export const ResultView: React.FC<ResultViewProps> = ({ data, vscode }) => {
     }
   };
 
+  // Render test case details
+  const renderTestCaseDetails = () => {
+    // If we have a full testCase object, use that, otherwise use the data from the test object
+    const tc = testCase || test;
+
+    if (!tc) return null;
+
+    return (
+      <div className="test-case-details card">
+        <div className="card-header">
+          <h2>Test Case Details</h2>
+        </div>
+        <div className="card-body">
+          {testCase ? (
+            <>
+              {/* Handle different template types */}
+              {testCase.template_id === TEMPLATE_STEPS &&
+              testCase.custom_steps_separated &&
+              testCase.custom_steps_separated.length > 0 ? (
+                <>
+                  {testCase.custom_preconds && (
+                    <div className="test-section">
+                      <h3>Preconditions</h3>
+                      <div
+                        className="test-section-content"
+                        dangerouslySetInnerHTML={{
+                          __html: formatMarkdown(testCase.custom_preconds),
+                        }}
+                      />
+                    </div>
+                  )}
+                  <div className="test-section">
+                    <h3>Steps</h3>
+                    <div className="steps-separated">
+                      {testCase.custom_steps_separated.map((step, index) => (
+                        <div key={index} className="step-item">
+                          <div className="step-number">Step {index + 1}</div>
+                          <div className="step-content">
+                            <div className="step-label">Description:</div>
+                            <div
+                              dangerouslySetInnerHTML={{
+                                __html: formatMarkdown(step.content),
+                              }}
+                            />
+                          </div>
+                          <div className="step-expected">
+                            <div className="step-label">Expected Result:</div>
+                            <div
+                              dangerouslySetInnerHTML={{
+                                __html: formatMarkdown(step.expected),
+                              }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : testCase.template_id === TEMPLATE_BDD ? (
+                <>
+                  {/* BDD Template */}
+                  {testCase.custom_preconds && (
+                    <div className="test-section">
+                      <h3>Preconditions</h3>
+                      <div
+                        className="test-section-content"
+                        dangerouslySetInnerHTML={{
+                          __html: formatMarkdown(testCase.custom_preconds),
+                        }}
+                      />
+                    </div>
+                  )}
+                  {/* BDD Scenario */}
+                  {testCase.custom_bdd_scenario && (
+                    <div className="test-section">
+                      <h3>BDD Scenario</h3>
+                      <div
+                        className="test-section-content"
+                        dangerouslySetInnerHTML={{
+                          __html: formatMarkdown(testCase.custom_bdd_scenario),
+                        }}
+                      />
+                    </div>
+                  )}
+                  {testCase.custom_expected && (
+                    <div className="test-section">
+                      <h3>Expected Result</h3>
+                      <div
+                        className="test-section-content"
+                        dangerouslySetInnerHTML={{
+                          __html: formatMarkdown(testCase.custom_expected),
+                        }}
+                      />
+                    </div>
+                  )}
+                </>
+              ) : testCase.template_id === TEMPLATE_EXPLORATORY ? (
+                <>
+                  {/* Exploratory Template */}
+                  {testCase.custom_preconds && (
+                    <div className="test-section">
+                      <h3>Preconditions</h3>
+                      <div
+                        className="test-section-content"
+                        dangerouslySetInnerHTML={{
+                          __html: formatMarkdown(testCase.custom_preconds),
+                        }}
+                      />
+                    </div>
+                  )}
+                  {/* Mission */}
+                  {testCase.custom_mission && (
+                    <div className="test-section">
+                      <h3>Mission</h3>
+                      <div
+                        className="test-section-content"
+                        dangerouslySetInnerHTML={{
+                          __html: formatMarkdown(testCase.custom_mission),
+                        }}
+                      />
+                    </div>
+                  )}
+                  {/* Goals */}
+                  {testCase.custom_goals && (
+                    <div className="test-section">
+                      <h3>Goals</h3>
+                      <div
+                        className="test-section-content"
+                        dangerouslySetInnerHTML={{
+                          __html: formatMarkdown(testCase.custom_goals),
+                        }}
+                      />
+                    </div>
+                  )}
+                  {/* Steps and Expected */}
+                  {testCase.custom_steps && (
+                    <div className="test-section">
+                      <h3>Steps</h3>
+                      <div
+                        className="test-section-content"
+                        dangerouslySetInnerHTML={{
+                          __html: formatMarkdown(testCase.custom_steps),
+                        }}
+                      />
+                    </div>
+                  )}
+                  {testCase.custom_expected && (
+                    <div className="test-section">
+                      <h3>Expected Result</h3>
+                      <div
+                        className="test-section-content"
+                        dangerouslySetInnerHTML={{
+                          __html: formatMarkdown(testCase.custom_expected),
+                        }}
+                      />
+                    </div>
+                  )}
+                </>
+              ) : testCase.template_id === TEMPLATE_TEXT ? (
+                <>
+                  {/* Default Text Template */}
+                  {testCase.custom_preconds && (
+                    <div className="test-section">
+                      <h3>Preconditions</h3>
+                      <div
+                        className="test-section-content"
+                        dangerouslySetInnerHTML={{
+                          __html: formatMarkdown(testCase.custom_preconds),
+                        }}
+                      />
+                    </div>
+                  )}
+                  {testCase.custom_steps && (
+                    <div className="test-section">
+                      <h3>Steps</h3>
+                      <div
+                        className="test-section-content"
+                        dangerouslySetInnerHTML={{
+                          __html: formatMarkdown(testCase.custom_steps),
+                        }}
+                      />
+                    </div>
+                  )}
+                  {testCase.custom_expected && (
+                    <div className="test-section">
+                      <h3>Expected Result</h3>
+                      <div
+                        className="test-section-content"
+                        dangerouslySetInnerHTML={{
+                          __html: formatMarkdown(testCase.custom_expected),
+                        }}
+                      />
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  {/* Fallback for any other template type */}
+                  {testCase.custom_preconds && (
+                    <div className="test-section">
+                      <h3>Preconditions</h3>
+                      <div
+                        className="test-section-content"
+                        dangerouslySetInnerHTML={{
+                          __html: formatMarkdown(testCase.custom_preconds),
+                        }}
+                      />
+                    </div>
+                  )}
+                  {testCase.custom_steps && (
+                    <div className="test-section">
+                      <h3>Steps</h3>
+                      <div
+                        className="test-section-content"
+                        dangerouslySetInnerHTML={{
+                          __html: formatMarkdown(testCase.custom_steps),
+                        }}
+                      />
+                    </div>
+                  )}
+                  {testCase.custom_expected && (
+                    <div className="test-section">
+                      <h3>Expected Result</h3>
+                      <div
+                        className="test-section-content"
+                        dangerouslySetInnerHTML={{
+                          __html: formatMarkdown(testCase.custom_expected),
+                        }}
+                      />
+                    </div>
+                  )}
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              {/* Fallback to basic test data if full testCase is not available */}
+              {tc.custom_preconds && (
+                <div className="test-section">
+                  <h3>Preconditions</h3>
+                  <div
+                    className="test-section-content"
+                    dangerouslySetInnerHTML={{
+                      __html: formatMarkdown(tc.custom_preconds),
+                    }}
+                  />
+                </div>
+              )}
+              {tc.custom_steps && (
+                <div className="test-section">
+                  <h3>Steps</h3>
+                  <div
+                    className="test-section-content"
+                    dangerouslySetInnerHTML={{
+                      __html: formatMarkdown(tc.custom_steps),
+                    }}
+                  />
+                </div>
+              )}
+              {tc.custom_expected && (
+                <div className="test-section">
+                  <h3>Expected Result</h3>
+                  <div
+                    className="test-section-content"
+                    dangerouslySetInnerHTML={{
+                      __html: formatMarkdown(tc.custom_expected),
+                    }}
+                  />
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   // Render create result form
   const renderCreateForm = () => {
     // Filter out the "Untested" status which is not valid for API calls
     const validStatuses = statuses.filter((status) => !status.is_untested);
 
     return (
-      <div className="create-result-form card">
-        <h2 className="card-header">Add Test Result</h2>
+      <>
+        {renderTestCaseDetails()}
 
-        <div className="card-body">
-          {formError && (
-            <div className="error-message alert alert-danger">
-              <i className="icon-error"></i> {formError}
-            </div>
-          )}
+        <div className="create-result-form card">
+          <h2 className="card-header">Add Test Result</h2>
 
-          <div className="form-group">
-            <label htmlFor="status">Status:</label>
-            <select
-              id="status"
-              value={selectedStatusId || ""}
-              onChange={(e) => setSelectedStatusId(Number(e.target.value))}
-              className="form-control"
-            >
-              <option value="">Select a status</option>
-              {validStatuses.map((status) => (
-                <option key={status.id} value={status.id}>
-                  {status.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="comment">Comment:</label>
-            <textarea
-              id="comment"
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              className="form-control"
-              rows={4}
-              placeholder="Enter your comments about the test result"
-            />
-          </div>
-
-          <div className="form-row">
-            <div className="form-group col-md-6">
-              <label htmlFor="defects">Defects:</label>
-              <input
-                id="defects"
-                type="text"
-                value={defects}
-                onChange={(e) => setDefects(e.target.value)}
-                className="form-control"
-                placeholder="e.g., TR-123, BUG-456"
-              />
-            </div>
-
-            <div className="form-group col-md-6">
-              <label htmlFor="version">Version:</label>
-              <input
-                id="version"
-                type="text"
-                value={version}
-                onChange={(e) => setVersion(e.target.value)}
-                className="form-control"
-                placeholder="e.g., 1.0.0"
-              />
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="elapsed">Elapsed Time:</label>
-            <input
-              id="elapsed"
-              type="text"
-              value={elapsed}
-              onChange={(e) => setElapsed(e.target.value)}
-              className="form-control"
-              placeholder="e.g., 30s, 1m 45s"
-            />
-            <small className="form-text text-muted">
-              Format: 30s, 1m 45s, etc.
-            </small>
-          </div>
-        </div>
-
-        <div className="card-footer">
-          <div className="button-group">
-            <button onClick={handleSaveResult} className="btn btn-primary">
-              <i className="icon-save"></i> Save Result
-            </button>
-            {results.length > 0 && (
-              <button
-                onClick={handleCancelCreate}
-                className="btn btn-secondary"
-              >
-                Cancel
-              </button>
+          <div className="card-body">
+            {formError && (
+              <div className="error-message alert alert-danger">
+                <i className="icon-error"></i> {formError}
+              </div>
             )}
+
+            <div className="form-group">
+              <label htmlFor="status">Status:</label>
+              <select
+                id="status"
+                value={selectedStatusId || ""}
+                onChange={(e) => setSelectedStatusId(Number(e.target.value))}
+                className="form-control"
+              >
+                <option value="">Select a status</option>
+                {validStatuses.map((status) => (
+                  <option key={status.id} value={status.id}>
+                    {status.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="comment">Comment:</label>
+              <textarea
+                id="comment"
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                className="form-control"
+                rows={4}
+                placeholder="Enter your comments about the test result"
+              />
+            </div>
+
+            <div className="form-row">
+              <div className="form-group col-md-6">
+                <label htmlFor="defects">Defects:</label>
+                <input
+                  id="defects"
+                  type="text"
+                  value={defects}
+                  onChange={(e) => setDefects(e.target.value)}
+                  className="form-control"
+                  placeholder="e.g., TR-123, BUG-456"
+                />
+              </div>
+
+              <div className="form-group col-md-6">
+                <label htmlFor="version">Version:</label>
+                <input
+                  id="version"
+                  type="text"
+                  value={version}
+                  onChange={(e) => setVersion(e.target.value)}
+                  className="form-control"
+                  placeholder="e.g., 1.0.0"
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="elapsed">Elapsed Time:</label>
+              <input
+                id="elapsed"
+                type="text"
+                value={elapsed}
+                onChange={(e) => setElapsed(e.target.value)}
+                className="form-control"
+                placeholder="e.g., 30s, 1m 45s"
+              />
+              <small className="form-text text-muted">
+                Format: 30s, 1m 45s, etc.
+              </small>
+            </div>
+          </div>
+
+          <div className="card-footer">
+            <div className="button-group">
+              <button onClick={handleSaveResult} className="btn btn-primary">
+                <i className="icon-save"></i> Save Result
+              </button>
+              {results.length > 0 && (
+                <button
+                  onClick={handleCancelCreate}
+                  className="btn btn-secondary"
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      </>
     );
   };
 
@@ -287,6 +601,8 @@ export const ResultView: React.FC<ResultViewProps> = ({ data, vscode }) => {
 
     return (
       <>
+        {renderTestCaseDetails()}
+
         {results.length > 1 && (
           <div className="result-selector card">
             <div className="card-body">
@@ -361,7 +677,7 @@ export const ResultView: React.FC<ResultViewProps> = ({ data, vscode }) => {
               <div
                 className="comment-content"
                 dangerouslySetInnerHTML={{
-                  __html: selectedResult.comment.replace(/\n/g, "<br>"),
+                  __html: formatMarkdown(selectedResult.comment),
                 }}
               />
             </div>
@@ -705,6 +1021,43 @@ export const ResultView: React.FC<ResultViewProps> = ({ data, vscode }) => {
         
         .attachment-link:hover {
           text-decoration: underline;
+        }
+        
+        .test-section {
+          margin-bottom: 20px;
+        }
+        
+        .test-section h3 {
+          margin-top: 0;
+          margin-bottom: 8px;
+          padding-bottom: 5px;
+          border-bottom: 1px solid var(--vscode-panel-border);
+        }
+        
+        .test-section-content {
+          line-height: 1.5;
+        }
+        
+        .steps-separated .step-item {
+          margin-bottom: 15px;
+          padding: 10px;
+          background-color: var(--vscode-editor-background);
+          border: 1px solid var(--vscode-panel-border);
+          border-radius: 4px;
+        }
+        
+        .step-number {
+          font-weight: bold;
+          margin-bottom: 8px;
+        }
+        
+        .step-label {
+          font-weight: bold;
+          margin-bottom: 5px;
+        }
+        
+        .step-content, .step-expected {
+          margin-bottom: 10px;
         }
         
         /* Icons */

@@ -128,6 +128,7 @@ export class TestCaseCommands {
         description: t.is_default ? "Default" : "",
         id: t.id,
       }));
+
       // const defaultTemplate = templates.find((t) => t.is_default);
       const selectedTemplate = await vscode.window.showQuickPick(
         templateItems,

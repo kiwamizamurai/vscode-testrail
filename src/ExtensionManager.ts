@@ -8,6 +8,7 @@ import { SectionCommands } from "./commands/section.commands";
 import { RunCommands } from "./commands/run.commands";
 import { ResultCommands } from "./commands/result.commands";
 import { MilestoneCommands } from "./commands/milestone.commands";
+import { FeedbackCommands } from "./commands/feedback.commands";
 
 export class ExtensionManager {
   private client: TestRailClient | undefined;
@@ -18,6 +19,7 @@ export class ExtensionManager {
   private runCommands: RunCommands | undefined;
   private resultCommands: ResultCommands | undefined;
   private milestoneCommands: MilestoneCommands | undefined;
+  private feedbackCommands: FeedbackCommands | undefined;
   private basicCommandDisposables: vscode.Disposable[] = [];
 
   constructor(
@@ -37,11 +39,23 @@ export class ExtensionManager {
       console.log("Client initialized successfully");
       this.initializeClientDependentCommands();
       this.initializeTreeView();
+      // Set context for login state
+      await vscode.commands.executeCommand(
+        "setContext",
+        "testrail.isLoggedIn",
+        true
+      );
       vscode.window.showInformationMessage(
         "Successfully connected to TestRail"
       );
     } else {
       console.log("No client available, showing login prompt");
+      // Set context for logout state
+      await vscode.commands.executeCommand(
+        "setContext",
+        "testrail.isLoggedIn",
+        false
+      );
       const selection = await vscode.window.showInformationMessage(
         "Please login to TestRail to get started",
         "Login"
@@ -68,6 +82,9 @@ export class ExtensionManager {
       ),
       vscode.commands.registerCommand("vscode-testrail.refresh", () =>
         this.handleRefresh()
+      ),
+      vscode.commands.registerCommand("vscode-testrail.feedback", () =>
+        this.handleOpenFeedback()
       ),
     ];
 
@@ -139,6 +156,7 @@ export class ExtensionManager {
       this.auth,
       this.context
     );
+    this.feedbackCommands = new FeedbackCommands(this.context);
 
     // Register client-dependent commands directly to context.subscriptions
     this.context.subscriptions.push(
@@ -235,6 +253,7 @@ export class ExtensionManager {
       this.treeDataProvider.refresh();
     } else {
       this.treeDataProvider = new TestRailTreeProvider(this.client);
+
       const treeView = vscode.window.createTreeView("testRailExplorer", {
         treeDataProvider: this.treeDataProvider,
         showCollapseAll: true,
@@ -276,9 +295,19 @@ export class ExtensionManager {
     console.log("Handling login");
     try {
       await this.auth.login();
+      await vscode.commands.executeCommand(
+        "setContext",
+        "testrail.isLoggedIn",
+        true
+      );
       await this.initialize();
     } catch (error) {
       console.error("Login failed:", error);
+      await vscode.commands.executeCommand(
+        "setContext",
+        "testrail.isLoggedIn",
+        false
+      );
       vscode.window.showErrorMessage(
         `Login failed: ${
           error instanceof Error ? error.message : "Unknown error"
@@ -296,6 +325,11 @@ export class ExtensionManager {
       // Only dispose basic commands, keep client-dependent commands in subscriptions
       this.basicCommandDisposables.forEach((d) => d.dispose());
       this.basicCommandDisposables = [];
+      await vscode.commands.executeCommand(
+        "setContext",
+        "testrail.isLoggedIn",
+        false
+      );
       await this.initialize();
       vscode.window.showInformationMessage(
         "Successfully logged out from TestRail"
@@ -311,11 +345,30 @@ export class ExtensionManager {
   }
 
   handleRefresh() {
-    console.log("Handling refresh");
+    console.log("Refreshing tree view");
     if (this.treeDataProvider) {
       this.treeDataProvider.refresh();
-    } else {
-      vscode.window.showWarningMessage("Please login to TestRail first");
+    }
+  }
+
+  /**
+   * Handler for opening the feedback form
+   */
+  private async handleOpenFeedback() {
+    try {
+      // Feedback doesn't require an authenticated client, so initialize if needed
+      if (!this.feedbackCommands) {
+        this.feedbackCommands = new FeedbackCommands(this.context);
+      }
+
+      await this.feedbackCommands.handleOpenFeedback();
+    } catch (error) {
+      console.error("Error opening feedback form:", error);
+      vscode.window.showErrorMessage(
+        `Error opening feedback form: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
     }
   }
 }

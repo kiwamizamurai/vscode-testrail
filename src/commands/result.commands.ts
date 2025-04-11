@@ -138,9 +138,21 @@ export class ResultCommands {
           ? await this.client.runs.get(test.run_id)
           : undefined;
 
+        // Get the test case details
+        let testCase = null;
+        try {
+          if (test.case_id) {
+            testCase = await this.client.cases.get(test.case_id);
+            console.log(`Loaded test case ${test.case_id} for test ${testId}`);
+          }
+        } catch (err) {
+          console.error(`Error fetching test case ${test.case_id}:`, err);
+        }
+
         // Prepare updated data
         const data = {
           test,
+          testCase,
           results,
           statuses,
           host,
@@ -175,9 +187,21 @@ export class ResultCommands {
         ? await this.client.runs.get(test.run_id)
         : undefined;
 
+      // Get the test case details
+      let testCase = null;
+      try {
+        if (test.case_id) {
+          testCase = await this.client.cases.get(test.case_id);
+          console.log(`Loaded test case ${test.case_id} for test ${test.id}`);
+        }
+      } catch (err) {
+        console.error(`Error fetching test case ${test.case_id}:`, err);
+      }
+
       // Prepare data for React webview
       const data = {
         test,
+        testCase,
         results,
         statuses,
         host,

@@ -4,7 +4,7 @@ import * as vscode from "vscode";
  * Manages React-based webview panels
  */
 export class ReactWebviewProvider {
-  private static instance: ReactWebviewProvider;
+  private static instance: ReactWebviewProvider | undefined;
   private panels: Map<string, vscode.WebviewPanel> = new Map();
   private extensionUri: vscode.Uri;
 
@@ -15,6 +15,9 @@ export class ReactWebviewProvider {
   public static getInstance(extensionUri: vscode.Uri): ReactWebviewProvider {
     if (!ReactWebviewProvider.instance) {
       ReactWebviewProvider.instance = new ReactWebviewProvider(extensionUri);
+    } else if (ReactWebviewProvider.instance.extensionUri !== extensionUri) {
+      // Update the URI if it's different (this should prevent VS Code API conflicts)
+      ReactWebviewProvider.instance.extensionUri = extensionUri;
     }
     return ReactWebviewProvider.instance;
   }
